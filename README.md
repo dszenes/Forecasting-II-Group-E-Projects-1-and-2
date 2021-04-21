@@ -11,8 +11,7 @@ DONE:
 
 - import of the raw data
 - transformation in tsibble format
-- global autoplot
-- additive/multiplicative STL
+- global autoplot + additive/multiplicative STL
 
 
 NEED TO BE DONE:
