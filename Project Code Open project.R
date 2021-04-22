@@ -42,6 +42,7 @@ mut %>%
   xlab("year")
 
 
+
 # Classical decomposition multiplicative
 mut %>% 
   as_tsibble() %>%
@@ -49,3 +50,50 @@ mut %>%
   components() %>%
   autoplot() +
   xlab("year")
+
+
+# Let's check the seasonality:
+
+mut %>% as_tsibble() %>% gg_season(`47: Total retail sector`)
+
+
+# We can notice from the season plot that December is the month with the highest index of sales,
+# On the other hand, every year in February sales sink compared to January for almost every year of the time series.
+# Moreover, in March, May and July the sales increase after declining for the months of April and June. Interesting
+# also to notice that from August until the end of the year the sales increase following something similar to a linear trend.
+
+
+# Exponential smoothing forecasting
+
+retaildata <- mut %>% as_tsibble()
+
+fit_ETS <- retaildata %>%
+  model(ETS(`47: Total retail sector`))
+
+fit_ETS %>%
+  report()
+
+# The default function gives an ETS with multiplicative errors, additive trend with dampening and a multiplicative seasonality.
+
+fit_ETS %>% forecast( h= 10) %>% autoplot(retaildata)
+
+# Let's apply an additive model
+fit_ETS2 <- retaildata %>%
+  model(ETS(`47: Total retail sector`~ error("A") + trend("Ad")  + season("A")))
+
+fit_ETS2 %>%
+  report()
+
+fit_ETS2 %>% forecast( h= 10) %>% autoplot(retaildata)
+
+# Compare the accuracy between the 2 models:
+
+accuracy(fit_ETS)
+accuracy(fit_ETS2)
+
+# The multiplicative model seems to be better.
+
+
+
+
+
