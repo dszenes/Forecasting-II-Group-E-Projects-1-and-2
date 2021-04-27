@@ -1,0 +1,113 @@
+---
+title: 'Project 1: Sales Data'
+output: html_document
+---
+
+```{r, echo = FALSE, message = FALSE}
+source(here::here("setup.R"))
+```
+```{r}
+
+load("TX_2.rdata")
+
+
+```
+
+```{r}
+
+## Sales data
+
+
+product_list <- unique(sales$item_id) 
+
+length(product_list)
+
+unique(sales$dept_id)
+
+
+# 1437 products, 3 departments
+
+unique(sales$store_id) # only one value, can remove variable
+
+
+
+library(data.table) 
+
+setDT(sales)[, .(count = uniqueN(item_id)), by = dept_id] # number of items per department
+
+total_sales <- sales %>%
+  select(day, sales) %>%
+  group_by(day) %>%
+  summarise(tot_sales = sum(sales)) %>%
+  as_tsibble()
+
+total_sales %>%
+  mutate(Month = yearmonth(day)) %>%
+  filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
+  as_tibble() %>%
+  group_by(Month) %>%
+  summarise(tot_sales = sum(tot_sales))  %>%
+  tsibble() %>%
+  autoplot()
+
+```
+
+```{r}
+
+## Calendar data
+?autoplot
+
+unique(cal$type_1) 
+# 4 types of events
+
+cal %>%
+  filter(name_1 != "") 
+
+# 162 days with events
+
+cal %>%
+  mutate(event = name_1 != "") %>%
+  mutate(month = strftime(cal$date, format = "%m")) %>%
+  filter(event == TRUE)  %>%
+  ggplot(aes(month)) +
+  geom_histogram(stat="count")
+
+# particularly many events in February and few in AUGust
+  
+
+cal %>%
+  filter(name_2 != "") 
+
+# 5 days with 2 events, these might appear as outliers in the dataset
+
+cal %>%
+  mutate(day = strftime(cal$date, format = "%d")) %>%
+  select( day, snap_TX)  %>%
+  ggplot(aes(day, snap_TX)) +
+  geom_point() 
+
+# snap benefits are distributed in sequence : 1,3,5,6,7,9,11,12,13,15 every month throughout the data set
+
+
+
+
+```
+
+```{r}
+
+## Prices data
+
+product_list_2 <- unique(prices$item_id)
+
+# we only have sales data for foods products, but we have prices for other products 
+prices %>%
+  filter(item_id == product_list[1]  ) %>%
+  ggplot(aes(wm_yr_wk, sell_price)) +
+  geom_point()
+
+# we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
+  
+  
+  
+
+```
