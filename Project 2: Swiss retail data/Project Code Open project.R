@@ -93,7 +93,48 @@ accuracy(fit_ETS2)
 
 # The multiplicative model seems to be better.
 
+# Regression model with trend and season
 
+fit_reg <- retaildata %>%
+  model(TSLM(`47: Total retail sector` ~ trend() + season()))
+
+report(fit_reg)
+
+# Just to have a picture of the predictions and the actual data
+
+augment(fit_reg) %>% ggplot(aes(x = Date)) +
+  geom_line(aes(y = `47: Total retail sector`, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted"))
+
+# Check for the accuracy:
+
+accuracy(fit_reg)
+
+#It is not improved in relation with the previous ETS model.
+
+# As we know that the seasonality is probably slightly multiplicative log transfor the model
+
+fit_regl <- retaildata %>%
+  model(TSLM = TSLM(log(`47: Total retail sector`)~ trend() + season()))
+
+augment(fit_regl)
+
+tidy(fit_regl) %>% select(term, estimate)
+
+expcoef <- (exp(coef(fit_regl)$estimate) - 1) * 100
+options( scipen = 999)
+expcoef
+
+# Every month the sales increase by 7,2 %
+
+fit_regl %>% forecast (h = 12) %>% autoplot(retaildata)
+
+# compare reg model and log reg model:
+
+accuracy(fit_regl)
+accuracy(fit_reg)
+
+# The reg model seems better.
 
 
 
