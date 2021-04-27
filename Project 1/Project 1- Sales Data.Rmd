@@ -3,17 +3,17 @@ title: 'Project 1: Sales Data'
 output: html_document
 ---
 
-```{r, echo = FALSE, message = FALSE}
-source(here::here("setup.R"))
-```
+
 ```{r}
 
 load("TX_2.rdata")
 
-
 ```
 
 ```{r}
+
+
+library(fpp3)
 
 ## Sales data
 
