@@ -1,4 +1,10 @@
-# Forecasting-II-Swiss-retail-data
+# Forecasting-II
+
+Project 1: US sales data
+
+
+
+Project 2: Swiss retail
 
 Business questions :
 
