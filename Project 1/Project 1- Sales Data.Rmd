@@ -111,3 +111,16 @@ prices %>%
   
 
 ```
+
+
+```{r}
+
+#Visualizing Total Sales over time to see main pattern of our data
+total_sales %>% autoplot(tot_sales)
+
+
+#AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
+total_sales %>% ACF(tot_sales) %>% autoplot()
+
+```
+
