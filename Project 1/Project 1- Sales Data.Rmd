@@ -1,25 +1,15 @@
----
-title: 'Project 1: Sales Data'
-output: html_document
----
-
 
 ```{r}
-
 load("TX_2.rdata")
-
 ```
 
+
 ```{r}
-
-
 library(fpp3)
 
 ## Sales data
 
-
 product_list <- unique(sales$item_id) 
-
 length(product_list)
 
 unique(sales$dept_id)
@@ -41,6 +31,8 @@ total_sales <- sales %>%
   summarise(tot_sales = sum(sales)) %>%
   as_tsibble()
 
+options(scipen = 999)
+
 total_sales %>%
   mutate(Month = yearmonth(day)) %>%
   filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
@@ -49,11 +41,36 @@ total_sales %>%
   summarise(tot_sales = sum(tot_sales))  %>%
   tsibble() %>%
   autoplot()
-
 ```
 
 ```{r}
+total_sales %>% model(STL(tot_sales)) %>% components() %>% autoplot()
+#STL decomposition of the total sales per day
+#we've to change daily to monthly/quarter
+```
 
+```{r}
+#sales data: from daily to monthly
+data_new2 <- as.data.frame(total_sales)
+data_new2$year_month <- floor_date(data_new2$day,"month")
+
+data_aggr2 <- data_new2 %>%
+  group_by(year_month) %>% 
+  dplyr::summarize(tot_sales = sum(tot_sales)) %>% 
+  as_tsibble()
+
+monthly_sales_data <-
+  data_aggr2 %>%
+  mutate(year_month = yearmonth(year_month)) %>%
+  as_tsibble(index = year_month)
+
+monthly_sales_data %>% filter( year_month > yearmonth("2011 Jan")) %>% 
+  model(STL()) %>%
+  components() %>%
+  autoplot()
+```
+
+```{r}
 ## Calendar data
 ?autoplot
 
@@ -72,7 +89,7 @@ cal %>%
   ggplot(aes(month)) +
   geom_histogram(stat="count")
 
-# particularly many events in February and few in AUGust
+# particularly many events in February and few in August
   
 
 cal %>%
@@ -86,15 +103,22 @@ cal %>%
   ggplot(aes(day, snap_TX)) +
   geom_point() 
 
-# snap benefits are distributed in sequence : 1,3,5,6,7,9,11,12,13,15 every month throughout the data set
+#snap benefits are distributed in sequence : 1,3,5,6,7,9,11,12,13,15 every month throughout the data set
 
+cal %>%
+  mutate(day = strftime(cal$date, format = "%d")) %>%
+  select( day, snap_CA)  %>%
+  ggplot(aes(day, snap_CA)) +
+  geom_point()
 
-
-
+cal %>%
+  mutate(day = strftime(cal$date, format = "%d")) %>%
+  select( day, snap_WI)  %>%
+  ggplot(aes(day, snap_WI)) +
+  geom_point() 
 ```
 
 ```{r}
-
 ## Prices data
 
 product_list_2 <- unique(prices$item_id)
@@ -105,22 +129,13 @@ prices %>%
   ggplot(aes(wm_yr_wk, sell_price)) +
   geom_point()
 
-# we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
-  
-  
-  
+ # we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
 
 ```
-
 
 ```{r}
-
 #Visualizing Total Sales over time to see main pattern of our data
 total_sales %>% autoplot(tot_sales)
-
-
 #AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
 total_sales %>% ACF(tot_sales) %>% autoplot()
-
 ```
-
