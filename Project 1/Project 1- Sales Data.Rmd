@@ -3,7 +3,6 @@
 load("TX_2.rdata")
 ```
 
-
 ```{r}
 library(fpp3)
 
@@ -18,8 +17,8 @@ unique(sales$dept_id)
 # 1437 products, 3 departments
 
 unique(sales$store_id) # only one value, can remove variable
-
-
+sales <- sales %>% select(-store_id)
+prices <- prices %>% select(-store_id)
 
 library(data.table) 
 
@@ -44,6 +43,18 @@ total_sales %>%
 ```
 
 ```{r}
+#Visualizing Total Sales over time to see main pattern of our data
+total_sales %>% autoplot(tot_sales)
+#AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
+total_sales %>% ACF(tot_sales) %>% autoplot()
+#seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
+x <- total_sales %>%
+  mutate(Month = yearmonth(day)) %>%
+  filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
+  as_tibble()
+```
+
+```{r}
 total_sales %>% model(STL(tot_sales)) %>% components() %>% autoplot()
 #STL decomposition of the total sales per day
 #we've to change daily to monthly/quarter
@@ -51,7 +62,7 @@ total_sales %>% model(STL(tot_sales)) %>% components() %>% autoplot()
 
 ```{r}
 #sales data: from daily to monthly
-data_new2 <- as.data.frame(total_sales)
+data_new2 <- as.data.frame(sales)
 data_new2$year_month <- floor_date(data_new2$day,"month")
 
 data_aggr2 <- data_new2 %>%
@@ -64,10 +75,19 @@ monthly_sales_data <-
   mutate(year_month = yearmonth(year_month)) %>%
   as_tsibble(index = year_month)
 
-monthly_sales_data %>% filter( year_month > yearmonth("2011 Jan")) %>% 
-  model(STL()) %>%
+monthly_sales_data %>% filter(year_month > yearmonth("2011 Jan")) %>% 
+  model(STL(tot_sales ~ trend(window = 21))) %>%
   components() %>%
   autoplot()
+
+monthly_sales_data %>% filter(year_month > yearmonth("2011 Jan")) %>% gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
+```
+
+```{r}
+##hierarchical structure : product, department analysis
+
+
+## ARIMA  + linear regression (add dummy with snap benefits + special events)
 ```
 
 ```{r}
@@ -96,7 +116,6 @@ cal %>%
   filter(name_2 != "") 
 
 # 5 days with 2 events, these might appear as outliers in the dataset
-
 cal %>%
   mutate(day = strftime(cal$date, format = "%d")) %>%
   select( day, snap_TX)  %>%
@@ -110,12 +129,13 @@ cal %>%
   select( day, snap_CA)  %>%
   ggplot(aes(day, snap_CA)) +
   geom_point()
-
 cal %>%
   mutate(day = strftime(cal$date, format = "%d")) %>%
   select( day, snap_WI)  %>%
   ggplot(aes(day, snap_WI)) +
   geom_point() 
+#Those two are useless becasue the store is located in TX
+cal <- cal %>% select(-snap_CA, -snap_WI, -wday)
 ```
 
 ```{r}
@@ -131,22 +151,4 @@ prices %>%
 
  # we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
 
-```
-
-```{r}
-
-#Visualizing Total Sales over time to see main pattern of our data
-total_sales %>% autoplot(tot_sales)
-
-
-#AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
-total_sales %>% ACF(tot_sales) %>% autoplot()
-
-
-#seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
-x <- total_sales %>%
-  mutate(Month = yearmonth(day)) %>%
-  filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
-  as_tibble()
-x %>% gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
 ```
