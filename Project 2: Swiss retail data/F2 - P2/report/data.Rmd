@@ -1,0 +1,158 @@
+# 2 Data
+
+```{r, echo = FALSE, message = FALSE}
+source(here::here("scripts/setup.R"))
+```
+
+## Raw Data Set
+
+### Monthly Real Retail Turnover Index
+<br>
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+  + *Data Description*
+  <br>
+  
+  The Retail Trade Turnover Statistics (DHU) is a monthly economic statistic describing the turnover evolution of the retail trade at the national level. Along with the indicators for the retail trade, those for the industry(INDPAU), the construction industry (BAPAU) and services (DLU)cover the remaining branches of the national economy.
+  
+  + *Methodology Sample survey*
+  <br>
+  
+  The survey population is comprised of all enterprises active in retail tradewhich are domiciled in Switzerland. Large and medium enterprises are surveyed exhaustively, small enterprises are surveyed randomly. Large enterprises are surveyed each month, the others four times per year.The sample consistsof about 4000 enterprises. Micro enterprises are not included in the sample.
+
+</div>
+
+<br>
+
+```{r}
+raw_df <-
+  read_csv(
+    file = here::here("data/px-x-0603020000_101_20210420-140452.csv"),
+    col_names = FALSE
+  ) #import the data
+raw_df <- raw_df[1:16, -1] #remove uninteresing columns
+raw_df[1, 1] <- "Date" #fill the empty column title for the date column
+raw_df <- t(raw_df) #change the disposition of the data
+a <- raw_df %>%
+  row_to_names(row_number = 1) #row 1 -> title
+a <- as_tibble(a)
+```
+
+```{r}
+for (i in 2:ncol(a)) {
+  a[,i] <- sapply(a[,i], as.numeric)
+} #as columns are defined as character when we import the data, we've to change the class: from chr to double
+```
+
+```{r}
+colnames(a) <-
+  c(
+    "year_month",
+    "tot",
+    "totwithout_service_stations",
+    "food_bev_tobacco_retail",
+    "non-food_without_service_stations",
+    "information_communication_equipment",
+    "other_household_equipment",
+    "cultural_recreation",
+    "other_goods",
+    "478:479",
+    "service_stations",
+    "tot_without_fuel",
+    "food_bev_tobacco",
+    "clothing_footwear",
+    "other_classesgoods_nofuel",
+    "auto_fuel"
+  )
+
+df2 <- a %>% select(-other_classesgoods_nofuel, -food_bev_tobacco) #removing column that are not well documented and that we wont find any way to interpret them
+
+mut <- df2 %>% 
+  mutate(year_month = yearmonth(
+    as.Date(
+      paste0(year_month, "D01"),
+      format = "%YM%mD%d"))) #date bug manipulation
+ts <- mut %>% as_tsibble() #tsibble import
+
+kable_maker(ts)
+```
+
+<br>
+
+_Source of the data set:_ [https://www.bfs.admin.ch/bfs/en/home/statistics/industry-services/surveys/dhu.html]
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+This dataset covers the period from January 2000 to February 2021 and contains about 254 observations.
+
+</div>
+
+<br>
+
+### Swiss Consumer Sentiment Index
+<br>
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+  + *Survey*
+  <br>
+  
+  The survey on consumer sentiment has been held four times a year since October 1972, namely every January,April, July and October. The fieldwork phase lasts three weeks. The target population consists of the inhabitants of Switzerland from an age of 16 years. Every quarter, the Swiss Federal Statistical Office (FSO) provides a corresponding random sample of some 3,300 individuals, stratified by language region. The individuals selected receive a corresponding notification letter. The survey is generally conducted by telephone (Computer Assisted Telephone Interview, CATI) in German, French or Italian.However, those who do not have a telephone number in the FSO’s register are more difficult to contact. To reach the highest possible response rate in this subset of the sample, they are offered the option of participating online(Computer Assisted Web Interview, CAWI) and receive a reminder letter if they do not respond to the notification letter
+  
+  + *Calculating the indices* 
+  <br>
+  
+  The survey comprises eleven questions on various aspects of economic development. A separate (sub-)index is calculated and published for each question, corresponding to the simple arithmetic mean of all answers multiplied by a factor of 100. The individual possible answers are given a numerical code as follows:•Much better/higher: +2•Better/higher: +1•No change, don’t know: 0•Worse/lower: -1•Much worse/lower: -2The potential values for each index thus range from +200 (were all respondents to answer “Much better/higher”)to -200 (were all respondents to answer “Much worse/lower”). Details on the coding are provided below. The consumer sentiment index is calculated as the mean of the following sub-indices:
+    <br>
+    
+  + *1.2 Expected general economic situation*
+  + *4.1 Past financial situation*
+  + *4.2 Expected financial situation*
+  + *5.2 Moment to make major purchases*
+  
+**Questionnaire** 
+
+  + *1.1 Past general economic situation*
+
+  + *1.2 Expected general economic situation*
+
+  + *2.1 Past price development*
+
+  + *2.2 Expected price development*
+
+  + *3.1. Job security*
+
+  + *3.2 Expected unemployment (since 2007)*
+
+  + *4.1 Past financial situation*
+
+  + *4.2 Expected financial situation*
+
+  + *5.1 Current situation in terms of saving/debt*
+
+  + *5.2 Moment to make major purchases*
+
+  + *5.3 Expected situation in terms of saving/debt (since 2007)*
+
+check : [https://www.seco.admin.ch/dam/seco/en/dokumente/Wirtschaft/Wirtschaftslage/Konsumentenstimmung/Methodik.pdf.download.pdf/Methodik.pdf for further] details
+
+</div>
+
+<br>
+```{r}
+cons_raw_df <-
+  read_csv(
+    file = here::here("data/consumer_expectation.csv")
+  ) #import the data
+```
+

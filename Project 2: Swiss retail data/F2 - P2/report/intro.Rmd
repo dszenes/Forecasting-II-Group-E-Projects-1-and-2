@@ -1,0 +1,46 @@
+# 1 Introduction
+
+```{r, echo = FALSE, message = FALSE}
+source(here::here("scripts/setup.R"))
+```
+
+## Overview and Motivation
+
+<br>
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+ABSTRACT
+
+</div>
+
+## Related Work
+
+<br>
+
+We were very interested in ...
+
+<br>
+
+#### The research questions we will attempt to answer with this project are:
+
+<br>
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+1. **RQ1**
+
+2. **RQ2**
+
+
+</div>
+
+<br>
+
+
+
