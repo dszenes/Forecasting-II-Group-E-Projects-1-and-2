@@ -134,8 +134,19 @@ prices %>%
 ```
 
 ```{r}
+
 #Visualizing Total Sales over time to see main pattern of our data
 total_sales %>% autoplot(tot_sales)
+
+
 #AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
 total_sales %>% ACF(tot_sales) %>% autoplot()
+
+
+#seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
+x <- total_sales %>%
+  mutate(Month = yearmonth(day)) %>%
+  filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
+  as_tibble()
+x %>% gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
 ```
