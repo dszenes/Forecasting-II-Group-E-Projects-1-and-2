@@ -1,0 +1,137 @@
+# 3 Exploratory data analysis
+
+```{r, echo = FALSE, message = FALSE}
+source(here::here("scripts/setup.R"))
+```
+
+## 3.1 Monthly Real Retail Turnover Index EDA
+
+<br>
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+little explanation of what w're show to see with the data
+
+</div>
+
+<br>
+
+ 
+
+```{r, fig.align='center'}
+ts %>% autoplot(tot)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(tot, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+
+
+
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(tot, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+
+ts %>% gg_season(tot)
+```
+
+```{r, fig.align='center'}
+# We can notice from the season plot that December is the month with the highest index of sales,
+# On the other hand, every year in February sales sink compared to January for almost every year of the time series.
+# Moreover, in March, May and July the sales increase after declining for the months of April and June. Interesting
+# also to notice that from August until the end of the year the sales increase following something similar to a linear trend.
+
+
+# Exponential smoothing forecasting
+
+fit_ETS <- ts %>%
+  model(ETS(tot))
+
+fit_ETS %>%
+  report()
+
+# The default function gives an ETS with multiplicative errors, additive trend with dampening and a multiplicative seasonality.
+
+fit_ETS %>% forecast(h = 10) %>% autoplot(ts)
+```
+
+```{r, fig.align='center'}
+
+# Let's apply an additive model
+fit_ETS2 <- ts %>%
+  model(ETS(tot ~ error("A") + trend("Ad")  + season("A")))
+
+fit_ETS2 %>%
+  report()
+
+fit_ETS2 %>% forecast( h= 10) %>% autoplot(ts)
+
+# Compare the accuracy between the 2 models:
+
+accuracy(fit_ETS)
+accuracy(fit_ETS2)
+
+# The multiplicative model seems to be better.
+```
+
+```{r, fig.align='center'}
+# Regression model with trend and season
+
+fit_reg <- ts %>%
+  model(TSLM(tot ~ trend() + season()))
+
+report(fit_reg)
+
+# Just to have a picture of the predictions and the actual data
+
+augment(fit_reg) %>% ggplot(aes(x = year_month)) +
+  geom_line(aes(y = tot, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted"))
+
+# Check for the accuracy:
+
+accuracy(fit_reg)
+
+#It is not improved in relation with the previous ETS model.
+```
+
+```{r, fig.align='center'}
+# As we know that the seasonality is probably slightly multiplicative log transfor the model
+
+fit_regl <- ts %>%
+  model(TSLM = TSLM(log(tot)~ trend() + season()))
+
+augment(fit_regl)
+
+tidy(fit_regl) %>% select(term, estimate)
+
+expcoef <- (exp(coef(fit_regl)$estimate) - 1) * 100
+options( scipen = 999)
+expcoef
+
+# Every month the sales increase by 7,2 %
+
+fit_regl %>% forecast (h = 12) %>% autoplot(ts)
+
+# compare reg model and log reg model:
+
+accuracy(fit_regl)
+accuracy(fit_reg)
+
+# The reg model seems better.
+```
