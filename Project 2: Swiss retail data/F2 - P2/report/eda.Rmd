@@ -19,7 +19,6 @@ little explanation of what w're show to see with the data
 
 <br>
 
- 
 
 ```{r, fig.align='center'}
 ts %>% autoplot(tot)
@@ -33,9 +32,6 @@ ts %>%
   components() %>%
   autoplot() +
   xlab("Years")
-
-
-
 # Classical decomposition multiplicative
 ts %>%
   model(classical_decomposition(tot, type = "multiplicative")) %>%
@@ -48,15 +44,307 @@ ts %>%
 # Let's check the seasonality:
 
 ts %>% gg_season(tot)
-```
 
-```{r, fig.align='center'}
 # We can notice from the season plot that December is the month with the highest index of sales,
 # On the other hand, every year in February sales sink compared to January for almost every year of the time series.
 # Moreover, in March, May and July the sales increase after declining for the months of April and June. Interesting
 # also to notice that from August until the end of the year the sales increase following something similar to a linear trend.
+```
 
 
+```{r, fig.align='center'}
+ts %>% autoplot(food_bev_tobacco_retail)
+```
+
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(food_bev_tobacco_retail, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(food_bev_tobacco_retail, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(food_bev_tobacco_retail)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(`non-food_without_service_stations`)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(`non-food_without_service_stations`, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(`non-food_without_service_stations`, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(`non-food_without_service_stations`)
+```
+
+
+```{r, fig.align='center'}
+ts %>% autoplot(information_communication_equipment)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(information_communication_equipment, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(information_communication_equipment, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(information_communication_equipment)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(other_household_equipment)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(other_household_equipment, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(other_household_equipment, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(other_household_equipment)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(cultural_recreation)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(cultural_recreation, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(cultural_recreation, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(cultural_recreation)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(other_goods)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(other_goods, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(other_goods, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(other_goods)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(`478:479`)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(`478:479`, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(`478:479`, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(`478:479`)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(service_stations)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(service_stations, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(service_stations, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(service_stations)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(tot_without_fuel)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(tot_without_fuel, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(tot_without_fuel, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(tot_without_fuel)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(clothing_footwear)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(clothing_footwear, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(clothing_footwear, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(clothing_footwear)
+```
+
+```{r, fig.align='center'}
+ts %>% autoplot(auto_fuel)
+```
+
+```{r, fig.align='center'}
+# Classical decomposition
+# Classical decomposition additive
+ts %>% 
+  model(classical_decomposition(auto_fuel, type = "additive")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+# Classical decomposition multiplicative
+ts %>%
+  model(classical_decomposition(auto_fuel, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  xlab("Years")
+```
+
+```{r, fig.align='center'}
+# Let's check the seasonality:
+ts %>% gg_season(auto_fuel)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## beginning of analysis
+
+```{r, fig.align='center'}
 # Exponential smoothing forecasting
 
 fit_ETS <- ts %>%
@@ -71,7 +359,6 @@ fit_ETS %>% forecast(h = 10) %>% autoplot(ts)
 ```
 
 ```{r, fig.align='center'}
-
 # Let's apply an additive model
 fit_ETS2 <- ts %>%
   model(ETS(tot ~ error("A") + trend("Ad")  + season("A")))
