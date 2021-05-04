@@ -151,4 +151,37 @@ prices %>%
 
  # we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
 
+
+
+# Little overlooking on total sales time serie features
+
+sales_features <- monthly_sales_data %>% features(tot_sales, feature_set(pkgs = "feasts"))
+sales_features
+
+?features
+
+# we have only 1 row because only 1 time serie: total sales.
+# results: quite high trend strength (0.76), relatively moderate seasonality strenght (0.48)....
+
+
+
+
+# Hierarchical model building (trial)
+# The hierarchy is the following: item_id (food) --> dept_id ( Department) --> store_id (store), Actually we only have one store: TX_2 for the hierarchical building should we keep it or not? (probably not, question to ask)
+
+# TO merge price and sales dataset we should look at the key variable: item_id
+
+# Modification on price dataset: we need only item_id on FOOD, so filter on that
+
+prices_wra <- prices[369235:701214,] # Selecting only the rows linked with FOODS products.
+
+merged_dataset <- merge(prices_wra,sales, by= "item_id")
+
+# Error: cannot allocate vector of size 4.7 Gb
+
+
+
+
+
+
 ```
