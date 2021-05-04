@@ -105,6 +105,18 @@ fit <- monthly_sales_data %>%
      model(arima = ARIMA(tot_sales))
 report(fit)
 fit %>% gg_tsresiduals() #to check if residuals are white noise
+fit %>% forecast(h = 28) %>% autoplot(monthly_sales_data) #Forecast
+
+
+#creation of snap benefits dummy variable
+total_sales$snap <- ifelse(day(total_sales$day) == 1 | day(total_sales$day) == 3 | day(total_sales$day) == 5 | day(total_sales$day) == 6 | day(total_sales$day) == 7 | day(total_sales$day) == 9 | day(total_sales$day) == 11 |  day(total_sales$day) == 12 | day(total_sales$day) == 13 | day(total_sales$day) == 15, "TRUE", "FALSE") #or O and 1
+
+#Linear model
+fit_lm <- total_sales %>%
+          model(reg = TSLM(tot_sales ~ trend() + season() + snap))
+total_sales %>%
+     autoplot(tot_sales, col = "gray") +
+     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue") #too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
 
 ```
 
