@@ -85,9 +85,27 @@ monthly_sales_data %>% filter(year_month > yearmonth("2011 Jan")) %>% gg_subseri
 
 ```{r}
 ##hierarchical structure : product, department analysis
+sales1 <- tsibble(sales, index = day, key = c(item_id, dept_id))
+sales_hts <- sales1 %>%
+    aggregate_key(item_id / dept_id, sales = sum(sales)) #takes a bit of time
 
+#Problem with following code: Don't stop running, maybe because too much data
+#Maybe should take sales of each product by month instead of by day
+sales_hts %>%
+    filter(is_aggregated(dept_id)) %>%
+    autoplot(sales) + ylab("Sales") +
+    facet_wrap(vars(item_id), scales =
+                   "free_y"
+               , ncol = 3) +
+    theme(legend.position =
+              "none")
 
 ## ARIMA  + linear regression (add dummy with snap benefits + special events)
+fit <- monthly_sales_data %>% 
+     model(arima = ARIMA(tot_sales))
+report(fit)
+fit %>% gg_tsresiduals() #to check if residuals are white noise
+
 ```
 
 ```{r}
