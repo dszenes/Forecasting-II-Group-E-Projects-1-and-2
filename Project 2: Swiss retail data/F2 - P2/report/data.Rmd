@@ -81,6 +81,8 @@ ts <- mut %>% as_tsibble() #tsibble import
 kable_maker(ts)
 ```
 
+
+
 <br>
 
 _Source of the data set:_ [https://www.bfs.admin.ch/bfs/en/home/statistics/industry-services/surveys/dhu.html]
@@ -157,6 +159,14 @@ cons_raw_df <-
   )
 
 cons_raw_df <- cons_raw_df %>% filter(X2 >= 2000)
+
+cons_raw_df <- cons_raw_df[rep(seq_len(nrow(cons_raw_df)), each = 3), ]
+
+cons_raw_df <- cons_raw_df[1:254,]
+
+cons_raw_ts <- bind_cols(cons_raw_df, ts$year_month)
+
+
 ```
 
 ```{r}
