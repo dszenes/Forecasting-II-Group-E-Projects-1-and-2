@@ -13,7 +13,7 @@ div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
 </style>
 <div class = "blue">
 
-little explanation of what w're show to see with the data
+little explanation of what we're show to see with the data
 
 </div>
 
@@ -22,6 +22,15 @@ little explanation of what w're show to see with the data
 
 ```{r, fig.align='center'}
 ts %>% autoplot(tot)
+```
+
+```{r, fig.align='center'}
+ts %>% ACF(tot) %>% autoplot()
+ts %>% features(tot, feat_acf)
+```
+
+```{r, fig.align='center'}
+ts %>% gg_lag(tot, geom = "point")
 ```
 
 ```{r, fig.align='center'}
@@ -413,7 +422,7 @@ expcoef
 
 # Every month the sales increase by 7,2 %
 
-fit_regl %>% forecast (h = 12) %>% autoplot(ts)
+fit_regl %>% forecast(h = 48) %>% autoplot(ts)
 
 # compare reg model and log reg model:
 
@@ -422,3 +431,14 @@ accuracy(fit_reg)
 
 # The reg model seems better.
 ```
+
+```{r, fig.align='center'}
+fit_arima <- ts %>% model(ARIMA(tot))
+## A mable: 1 x 1
+               #`ARIMA(tot)`
+                   # <model>
+#1 <ARIMA(2,1,2)(0,1,2)[12]>
+accuracy(fit_arima)
+forecast(fit_arima, h = 48) %>% autoplot(ts)
+```
+
