@@ -17,12 +17,12 @@ div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
   + *Data Description*
   <br>
   
-  The Retail Trade Turnover Statistics (DHU) is a monthly economic statistic describing the turnover evolution of the retail trade at the national level. Along with the indicators for the retail trade, those for the industry(INDPAU), the construction industry (BAPAU) and services (DLU)cover the remaining branches of the national economy.
+  The Retail Trade Turnover Statistics (DHU) is a monthly economic statistic describing the turnover evolution of the retail trade at the national level. Along with the indicators for the retail trade, those for the industry(INDPAU), the construction industry (BAPAU) and services (DLU) cover the remaining branches of the national economy.
   
   + *Methodology Sample survey*
   <br>
   
-  The survey population is comprised of all enterprises active in retail tradewhich are domiciled in Switzerland. Large and medium enterprises are surveyed exhaustively, small enterprises are surveyed randomly. Large enterprises are surveyed each month, the others four times per year.The sample consistsof about 4000 enterprises. Micro enterprises are not included in the sample.
+  The survey population is comprised of all enterprises active in retail trade which are domiciled in Switzerland. Large and medium enterprises are surveyed exhaustively, small enterprises are surveyed randomly. Large enterprises are surveyed each month, the others four times per year.The sample consists of about 4000 enterprises. Micro enterprises are not included in the sample.
 
 </div>
 
@@ -149,10 +149,30 @@ check : [https://www.seco.admin.ch/dam/seco/en/dokumente/Wirtschaft/Wirtschaftsl
 </div>
 
 <br>
+
 ```{r}
 cons_raw_df <-
   read_csv(
-    file = here::here("data/consumer_expectation.csv")
+    file = here::here("data/consumer_expectation2.csv")
+  )
+
+cons_raw_df <- cons_raw_df %>% filter(X2 >= 2000)
+```
+
+```{r}
+covid_raw_df <-
+  read_csv(
+    file = here::here("data/covid.csv")
   ) #import the data
+
+```
+
+```{r}
+data_new2 <- as.data.frame(covid_raw_df)
+
+cov_date <- data_new2 %>% 
+  mutate(year_day = date(
+    as.Date(Date,
+      format = "%d.%m.%y")))
 ```
 
