@@ -13,7 +13,9 @@ div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
 </style>
 <div class = "blue">
 
-ABSTRACT
+https://www.investopedia.com/terms/r/retail-sales.asp
+-> why are retail sales import for the economy
+-> show if covid can have strong impact on national economys health (different sector)
 
 </div>
 
@@ -33,9 +35,8 @@ div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
 </style>
 <div class = "blue">
 
-1. **RQ1**
+1. **Has COVID-19 impacted the consumption of the Swiss domestic economy?**
 
-2. **RQ2**
 
 
 </div>
