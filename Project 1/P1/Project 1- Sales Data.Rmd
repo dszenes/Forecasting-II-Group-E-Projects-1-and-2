@@ -156,6 +156,25 @@ dep3tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
 ```
 
 ```{r}
+dep1tot_sales %>%
+  filter_index("2014-01-01"~.) %>%
+  filter(sales < 100)
+
+dep2tot_sales %>%
+  filter_index("2014-01-01"~.) %>%
+  filter(sales < 200)
+
+dep3tot_sales %>%
+  filter_index("2014-01-01"~.) %>%
+  filter(sales < 1000)
+
+# we can see a sale decrease @ 2014-03-27 in the 3 department
+# no explanation in the cal data set
+#take this data as outlier
+```
+
+
+```{r}
 ## Calendar data
 unique(cal$type_1) 
 # 4 types of events
