@@ -39,31 +39,6 @@ total_sales %>%
   autoplot()
 ```
 
-```{r}
-#departement sales vizualizations
-options(scipen = 999)
-
-total_dep_sales <- sales %>%
-  group_by(day, dept_id) %>%
-  summarise(tot_sales = sum(sales))
-
-dep1tot_sales <- total_dep_sales %>%
-  filter(dept_id == "FOODS_1") %>%
-  as_tsibble()
-
-dep2tot_sales <- total_dep_sales %>%
-  filter(dept_id == "FOODS_2") %>%
-  as_tsibble()
-
-dep3tot_sales <- total_dep_sales %>%
-  filter(dept_id == "FOODS_3") %>%
-  as_tsibble()
-
-
-dep1tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
-dep2tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
-dep3tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
-```
 
 
 ```{r}
@@ -139,10 +114,49 @@ sales_ts <- sales %>% as_tsibble(index = day, key = c(store_id, dept_id, item_id
 ##hierarchical structure : hierarchy : deparment -> store
 # there are 1437 products. I propose to disregard the lowest hierarchy (the products) because too much products ? Maybe concentrate ourselves on the top 5 selling products?
 ```
+```{r}
+#keep outliers in memory
+outliers <- sales_ts %>% filter_index("2014-12-26", "2015-03-25" ,"2015-12-26", "2014-03-27")
+```
+
+```{r}
+sales_ts_miss <- sales_ts %>% 
+  anti_join(outliers) %>% #remove outliers
+  fill_gaps() #replace them by missing values
+
+sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
+  model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
+  interpolate(sales_ts_miss) 
+```
+
+```{r}
+#departement sales vizualizations
+options(scipen = 999)
+
+total_dep_sales <- sales_ts_fill %>%
+  group_by(dept_id) %>%
+  summarise(sales = sum(sales))
+
+dep1tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_1") %>%
+  as_tsibble()
+
+dep2tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_2") %>%
+  as_tsibble()
+
+dep3tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_3") %>%
+  as_tsibble()
+
+
+dep1tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
+dep2tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
+dep3tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
+```
 
 ```{r}
 ## Calendar data
-
 unique(cal$type_1) 
 # 4 types of events
 
@@ -180,7 +194,7 @@ cal %>%
   geom_point()
 cal %>%
   mutate(day = strftime(cal$date, format = "%d")) %>%
-  select( day, snap_WI)  %>%
+  select(day, snap_WI)  %>%
   ggplot(aes(day, snap_WI)) +
   geom_point() 
 #Those two are useless becasue the store is located in TX
@@ -201,21 +215,6 @@ cal2014 <- cal %>%
 cal2014$name_1 <- as.factor(cal2014$name_1) 
 cal2014$name_2 <- as.factor(cal2014$name_2)
 cal2014$snap_TX <- as.factor(cal2014$snap_TX)
-```
-
-```{r}
-#keep outliers in memory
-outliers <- sales_ts %>% filter_index("2014-12-26", "2015-03-25" ,"2015-12-26")
-```
-
-```{r}
-sales_ts_miss <- sales_ts %>% 
-  anti_join(outliers) %>% #remove outliers
-  fill_gaps() #replace them by missing values
-
-sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
-  model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
-  interpolate(sales_ts_miss) 
 ```
 
 ```{r}
