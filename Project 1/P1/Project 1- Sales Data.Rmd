@@ -264,6 +264,26 @@ sales_aggr %>%
 ```
 
 ```{r}
+fit <- sales_aggr %>%
+  filter(is_aggregated(store_id)) %>% 
+  model(base = ARIMA(sales)) %>%
+  reconcile(
+    bu = bottom_up(base)
+  )
+
+fc <- fit %>% forecast(h = 28)
+
+fc %>%
+  filter(is_aggregated(store_id)) %>%
+  autoplot(
+    sales_aggr
+  )
+
+#the model do a poor job for dep 1 and 2
+#how can we fix this issue?
+```
+
+```{r}
 ## ARIMA  + linear regression (add dummy with snap benefits + special events)
 fit <- monthly_sales_data %>% 
      model(arima = ARIMA(tot_sales))
