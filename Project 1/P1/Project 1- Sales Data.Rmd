@@ -191,7 +191,7 @@ cal <- cal %>% select(-snap_CA, -snap_WI, -wday)
 cal <- cal %>% 
   mutate(date = date(
     as.Date(date,
-      format = "%Y-%m-%d"))) #chr to date
+      format = "%Y-%m-%d"))) %>% as_tsibble()#chr to date
 
 cal2014 <- cal %>%
   filter_index("2014-01-01" ~.) %>%
