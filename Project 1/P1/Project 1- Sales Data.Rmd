@@ -5,36 +5,33 @@ load("TX_2.rdata")
 
 ```{r}
 library(fpp3)
+library(data.table)
 
 ## Sales data
-
 product_list <- unique(sales$item_id) 
 length(product_list)
-
 unique(sales$dept_id)
-
-
 # 1437 products, 3 departments
 
-unique(sales$store_id) # only one value, can remove variable
-sales <- sales %>% select(-store_id)
-prices <- prices %>% select(-store_id)
-
-library(data.table) 
+unique(sales$store_id) # only one store
 
 setDT(sales)[, .(count = uniqueN(item_id)), by = dept_id] # number of items per department
 
+View(is.na(sales))
+#no missing values in this data set
+```
+
+```{r}
+options(scipen = 999)
+
 total_sales <- sales %>%
-  select(day, sales) %>%
   group_by(day) %>%
   summarise(tot_sales = sum(sales)) %>%
   as_tsibble()
 
-options(scipen = 999)
-
 total_sales %>%
   mutate(Month = yearmonth(day)) %>%
-  filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
+  filter(Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr")) %>%
   as_tibble() %>%
   group_by(Month) %>%
   summarise(tot_sales = sum(tot_sales))  %>%
@@ -43,12 +40,37 @@ total_sales %>%
 ```
 
 ```{r}
-#Visualizing Total Sales over time to see main pattern of our data
-total_sales %>% autoplot(tot_sales)
+#departement sales vizualizations
+options(scipen = 999)
+
+total_dep_sales <- sales %>%
+  group_by(day, dept_id) %>%
+  summarise(tot_sales = sum(sales))
+
+dep1tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_1") %>%
+  as_tsibble()
+
+dep2tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_2") %>%
+  as_tsibble()
+
+dep3tot_sales <- total_dep_sales %>%
+  filter(dept_id == "FOODS_3") %>%
+  as_tsibble()
+
+
+dep1tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
+dep2tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
+dep3tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(tot_sales)
+```
+
+
+```{r}
 #AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
 total_sales %>% ACF(tot_sales) %>% autoplot()
 #seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
-x <- total_sales %>%
+total_sales %>%
   mutate(Month = yearmonth(day)) %>%
   filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
   as_tibble()
@@ -57,17 +79,15 @@ x <- total_sales %>%
 ```{r}
 total_sales %>% model(STL(tot_sales)) %>% components() %>% autoplot()
 #STL decomposition of the total sales per day
-#we've to change daily to monthly/quarter
-```
+#for this representation, we've to change daily to monthly/quarter (too noisy)
 
-```{r}
 #sales data: from daily to monthly
 data_new2 <- as.data.frame(sales)
 data_new2$year_month <- floor_date(data_new2$day,"month")
 
 data_aggr2 <- data_new2 %>%
-  group_by(year_month) %>% 
-  dplyr::summarize(tot_sales = sum(tot_sales)) %>% 
+  group_by(year_month) %>%
+  summarize(tot_sales = sum(sales)) %>% 
   as_tsibble()
 
 monthly_sales_data <-
@@ -75,54 +95,53 @@ monthly_sales_data <-
   mutate(year_month = yearmonth(year_month)) %>%
   as_tsibble(index = year_month)
 
-monthly_sales_data %>% filter(year_month > yearmonth("2011 Jan")) %>% 
+monthly_sales_data %>%
+  filter(year_month > yearmonth("2011 Jan")) %>% 
   model(STL(tot_sales ~ trend(window = 21))) %>%
   components() %>%
   autoplot()
 
-monthly_sales_data %>% filter(year_month > yearmonth("2011 Jan")) %>% gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
+monthly_sales_data %>%
+  filter(year_month > yearmonth("2011 Jan")) %>%
+  gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
+#as there is a lot of data
+#is it useful to have all the time information?
+#we can see that the trend stop decreasing in 2014: we can filter from this date
 ```
 
 ```{r}
-##hierarchical structure : product, department analysis
-sales1 <- tsibble(sales, index = day, key = c(item_id, dept_id))
-sales_hts <- sales1 %>%
-    aggregate_key(item_id / dept_id, sales = sum(sales)) #takes a bit of time
+#Visualizing Total Sales over time to see main pattern of our data
+total_sales %>% autoplot(tot_sales)
+#we can see some outliers
+total_sales %>% filter(tot_sales < 1000)
+#day        tot_sales
+#2011-12-26	0			
+#2012-12-26	0
+#2013-12-26	11
+#2014-03-27	782			can be explain by St Patrick Day (cal row = 1144)
+#2014-12-26	7       outliers 1
+#2015-03-25	93      outliers 2
+#2015-12-26	0       outliers 3
 
-#Problem with following code: Don't stop running, maybe because too much data
-#Maybe should take sales of each product by month instead of by day
-sales_hts %>%
-    filter(is_aggregated(dept_id)) %>%
-    autoplot(sales) + ylab("Sales") +
-    facet_wrap(vars(item_id), scales =
-                   "free_y"
-               , ncol = 3) +
-    theme(legend.position =
-              "none")
-
-## ARIMA  + linear regression (add dummy with snap benefits + special events)
-fit <- monthly_sales_data %>% 
-     model(arima = ARIMA(tot_sales))
-report(fit)
-fit %>% gg_tsresiduals() #to check if residuals are white noise
-fit %>% forecast(h = 28) %>% autoplot(monthly_sales_data) #Forecast
-
-
-#creation of snap benefits dummy variable
-total_sales$snap <- ifelse(day(total_sales$day) == 1 | day(total_sales$day) == 3 | day(total_sales$day) == 5 | day(total_sales$day) == 6 | day(total_sales$day) == 7 | day(total_sales$day) == 9 | day(total_sales$day) == 11 |  day(total_sales$day) == 12 | day(total_sales$day) == 13 | day(total_sales$day) == 15, "TRUE", "FALSE") #or O and 1
-
-#Linear model
-fit_lm <- total_sales %>%
-          model(reg = TSLM(tot_sales ~ trend() + season() + snap))
 total_sales %>%
-     autoplot(tot_sales, col = "gray") +
-     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue") #too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
+  mutate(Month = yearmonth(day)) %>%
+  filter(Month >= yearmonth("2014 Jan")) %>% autoplot()
 
+total_sales %>% filter(tot_sales > 5000) #outliers because of NBAFinalsEnd (row 1600 in the cal data)
+#day        tot_sales
+#2015-06-16	5251	
+```
+
+```{r}
+sales_ts <- sales %>% as_tsibble(index = day, key = c(store_id, dept_id, item_id)) %>% filter_index("2014-01-01"~.)
+#without product in the hierarchical
+
+##hierarchical structure : hierarchy : deparment -> store
+# there are 1437 products. I propose to disregard the lowest hierarchy (the products) because too much products ? Maybe concentrate ourselves on the top 5 selling products?
 ```
 
 ```{r}
 ## Calendar data
-?autoplot
 
 unique(cal$type_1) 
 # 4 types of events
@@ -169,49 +188,109 @@ cal <- cal %>% select(-snap_CA, -snap_WI, -wday)
 ```
 
 ```{r}
-## Prices data
+cal <- cal %>% 
+  mutate(date = date(
+    as.Date(date,
+      format = "%Y-%m-%d"))) #chr to date
 
+cal2014 <- cal %>%
+  filter_index("2014-01-01" ~.) %>%
+  select(date, name_1, name_2, snap_TX)
+
+# the goal of those columns is to dummy them -> chr to factor
+cal2014$name_1 <- as.factor(cal2014$name_1) 
+cal2014$name_2 <- as.factor(cal2014$name_2)
+cal2014$snap_TX <- as.factor(cal2014$snap_TX)
+```
+
+```{r}
+#keep outliers in memory
+outliers <- sales_ts %>% filter_index("2014-12-26", "2015-03-25" ,"2015-12-26")
+```
+
+```{r}
+sales_ts_miss <- sales_ts %>% 
+  anti_join(outliers) %>% #remove outliers
+  fill_gaps() #replace them by missing values
+
+sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
+  model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
+  interpolate(sales_ts_miss) 
+```
+
+```{r}
+#merging the sales & cal data set
+sales_ts_fill <- sales_ts_fill %>% rename(date = day)
+df <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
+df <- df %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
+df %>% filter(is.na(sales))
+# as we've future date in cal dataset, we've some NA in the df data set
+```
+
+```{r}
+#hierarchy : department -> store
+sales_aggr <- df %>%
+  filter_index(.~"2016-04-25") %>% #remove the future cal date
+    aggregate_key(dept_id / store_id , sales = sum(sales)) 
+
+sales_aggr %>%
+  filter(!is_aggregated(store_id)) %>%
+  autoplot(sales) +
+  ylab("Sales") +
+  facet_wrap(vars(dept_id), scales =
+               "free_y"
+             , ncol = 3) +
+  theme(legend.position =
+          "none") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+## ARIMA  + linear regression (add dummy with snap benefits + special events)
+fit <- monthly_sales_data %>% 
+     model(arima = ARIMA(tot_sales))
+report(fit)
+fit %>% gg_tsresiduals() #to check if residuals are white noise
+fit %>% forecast(h = 28) %>% autoplot(monthly_sales_data) #Forecast
+#creation of snap benefits dummy variable
+total_sales$snap <- ifelse(day(total_sales$day) == 1 | day(total_sales$day) == 3 | day(total_sales$day) == 5 | day(total_sales$day) == 6 | day(total_sales$day) == 7 | day(total_sales$day) == 9 | day(total_sales$day) == 11 |  day(total_sales$day) == 12 | day(total_sales$day) == 13 | day(total_sales$day) == 15, "TRUE", "FALSE") #or O and 1
+#Linear model
+fit_lm <- total_sales %>%
+          model(reg = TSLM(tot_sales ~ trend() + season() + snap))
+total_sales %>%
+     autoplot(tot_sales, col = "gray") +
+     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue") #too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
+```
+
+```{r}
+## Prices data
 product_list_2 <- unique(prices$item_id)
 
 # we only have sales data for foods products, but we have prices for other products 
 prices %>%
-  filter(item_id == product_list[1]  ) %>%
+  filter(item_id == product_list[1]) %>%
   ggplot(aes(wm_yr_wk, sell_price)) +
   geom_point()
 
- # we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
+#we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
+```
 
-
-
+```{r}
 # Little overlooking on total sales time serie features
-
 sales_features <- monthly_sales_data %>% features(tot_sales, feature_set(pkgs = "feasts"))
 sales_features
-
 ?features
-
 # we have only 1 row because only 1 time serie: total sales.
 # results: quite high trend strength (0.76), relatively moderate seasonality strenght (0.48)....
-
-
-
-
 # Hierarchical model building (trial)
 # The hierarchy is the following: item_id (food) --> dept_id ( Department) --> store_id (store), Actually we only have one store: TX_2 for the hierarchical building should we keep it or not? (probably not, question to ask)
-
 # TO merge price and sales dataset we should look at the key variable: item_id
-
 # Modification on price dataset: we need only item_id on FOOD, so filter on that
-
 prices_wra <- prices[369235:701214,] # Selecting only the rows linked with FOODS products.
-
 merged_dataset <- merge(prices_wra,sales, by= "item_id")
-
 # Error: cannot allocate vector of size 4.7 Gb
-
-
-
-
-
-
 ```
+
+
+
+
