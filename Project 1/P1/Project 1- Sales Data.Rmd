@@ -27,19 +27,19 @@ options(scipen = 999)
 total_sales <- sales %>%
   group_by(day) %>%
   summarise(tot_sales = sum(sales)) %>%
-  as_tsibble()
+  as_tsibble() %>% filter_index("2014-01-01"~ "2016-04-25")
 
+total_sales %>% autoplot()
+
+#there are outliers in the data (26/12)
 total_sales %>%
   mutate(Month = yearmonth(day)) %>%
-  filter(Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr")) %>%
   as_tibble() %>%
   group_by(Month) %>%
   summarise(tot_sales = sum(tot_sales))  %>%
   tsibble() %>%
   autoplot()
 ```
-
-
 
 ```{r}
 #AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
@@ -114,9 +114,11 @@ sales_ts <- sales %>% as_tsibble(index = day, key = c(store_id, dept_id, item_id
 ##hierarchical structure : hierarchy : deparment -> store
 # there are 1437 products. I propose to disregard the lowest hierarchy (the products) because too much products ? Maybe concentrate ourselves on the top 5 selling products?
 ```
+
 ```{r}
 #keep outliers in memory
-outliers <- sales_ts %>% filter_index("2014-12-26", "2015-03-25" ,"2015-12-26", "2014-03-27")
+outliers <- sales_ts %>%
+  filter_index("2014-12-26", "2015-03-25" ,"2015-12-26", "2014-03-27")
 ```
 
 ```{r}
@@ -127,6 +129,14 @@ sales_ts_miss <- sales_ts %>%
 sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
   model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
   interpolate(sales_ts_miss) 
+
+```
+
+```{r}
+#removing outliers in total_sales object
+total_ts_sales <- sales_ts_fill %>%
+  summarise(tot_sales = sum(sales)) %>%
+  as_tsibble() %>% filter_index("2014-01-01"~ "2016-04-25")
 ```
 
 ```{r}
@@ -148,7 +158,6 @@ dep2tot_sales <- total_dep_sales %>%
 dep3tot_sales <- total_dep_sales %>%
   filter(dept_id == "FOODS_3") %>%
   as_tsibble()
-
 
 dep1tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
 dep2tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
@@ -172,7 +181,6 @@ dep3tot_sales %>%
 # no explanation in the cal data set
 #take this data as outlier
 ```
-
 
 ```{r}
 ## Calendar data
@@ -205,54 +213,53 @@ cal %>%
   geom_point() 
 
 #snap benefits are distributed in sequence : 1,3,5,6,7,9,11,12,13,15 every month throughout the data set
+cal <- cal %>%
+  select(-snap_CA, -snap_WI, -wday)
 
-cal %>%
-  mutate(day = strftime(cal$date, format = "%d")) %>%
-  select( day, snap_CA)  %>%
-  ggplot(aes(day, snap_CA)) +
-  geom_point()
-cal %>%
-  mutate(day = strftime(cal$date, format = "%d")) %>%
-  select(day, snap_WI)  %>%
-  ggplot(aes(day, snap_WI)) +
-  geom_point() 
-#Those two are useless becasue the store is located in TX
-cal <- cal %>% select(-snap_CA, -snap_WI, -wday)
+cal <- cal %>% mutate(snap_TX = ifelse(cal$snap_TX == 1, TRUE,FALSE))
+
 ```
 
 ```{r}
 cal <- cal %>% 
   mutate(date = date(
     as.Date(date,
-      format = "%Y-%m-%d"))) %>% as_tsibble()#chr to date
+      format = "%Y-%m-%d"))) %>%
+  as_tsibble()#chr to date
 
 cal2014 <- cal %>%
-  filter_index("2014-01-01" ~.) %>%
+  filter_index("2014-01-01" ~"2016-05-23") %>%
   select(date, name_1, name_2, snap_TX)
 
 # the goal of those columns is to dummy them -> chr to factor
 cal2014$name_1 <- as.factor(cal2014$name_1) 
 cal2014$name_2 <- as.factor(cal2014$name_2)
-cal2014$snap_TX <- as.factor(cal2014$snap_TX)
 ```
 
 ```{r}
 #merging the sales & cal data set
 sales_ts_fill <- sales_ts_fill %>% rename(date = day)
 df <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
+
 df <- df %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
 df %>% filter(is.na(sales))
 # as we've future date in cal dataset, we've some NA in the df data set
+#as we've to predict for h=28 days, we've to forecast until 2016-04-23
+#in order to forecast h=28, we've to take into account 4 events (+snap benefits):
+#Pesach End
+#OrthodoxEaster
+#Cinco De Mayo
+#Mother's day
 ```
 
 ```{r}
 #hierarchy : department -> store
 sales_aggr <- df %>%
   filter_index(.~"2016-04-25") %>% #remove the future cal date
-    aggregate_key(dept_id / store_id , sales = sum(sales)) 
+    aggregate_key(dept_id / store_id, sales = sum(sales)) 
 
 sales_aggr %>%
-  filter(!is_aggregated(store_id)) %>%
+  filter(is_aggregated(store_id)) %>%
   autoplot(sales) +
   ylab("Sales") +
   facet_wrap(vars(dept_id), scales =
@@ -271,6 +278,7 @@ fit <- sales_aggr %>%
     bu = bottom_up(base)
   )
 
+
 fc <- fit %>% forecast(h = 28)
 
 fc %>%
@@ -278,26 +286,71 @@ fc %>%
   autoplot(
     sales_aggr
   )
-
 #the model do a poor job for dep 1 and 2
 #how can we fix this issue?
 ```
+
+
 
 ```{r}
 ## ARIMA  + linear regression (add dummy with snap benefits + special events)
 fit <- monthly_sales_data %>% 
      model(arima = ARIMA(tot_sales))
 report(fit)
-fit %>% gg_tsresiduals() #to check if residuals are white noise
-fit %>% forecast(h = 28) %>% autoplot(monthly_sales_data) #Forecast
+fit %>%
+  gg_tsresiduals() #to check if residuals are white noise
+fit %>% 
+  orecast(h = 28) %>%
+  autoplot(monthly_sales_data) #Forecast
 #creation of snap benefits dummy variable
-total_sales$snap <- ifelse(day(total_sales$day) == 1 | day(total_sales$day) == 3 | day(total_sales$day) == 5 | day(total_sales$day) == 6 | day(total_sales$day) == 7 | day(total_sales$day) == 9 | day(total_sales$day) == 11 |  day(total_sales$day) == 12 | day(total_sales$day) == 13 | day(total_sales$day) == 15, "TRUE", "FALSE") #or O and 1
+
+total_ts_sales$snap <-
+  ifelse(
+    day(total_sales$day) == 1 |
+      day(total_sales$day) == 3 |
+      day(total_sales$day) == 5 |
+      day(total_sales$day) == 6 |
+      day(total_sales$day) == 7 |
+      day(total_sales$day) == 9 |
+      day(total_sales$day) == 11 |
+      day(total_sales$day) == 12 |
+      day(total_sales$day) == 13 |
+      day(total_sales$day) == 15,
+    "TRUE",
+    "FALSE"
+  )
+#or O and 1
 #Linear model
-fit_lm <- total_sales %>%
+fit_lm <- total_ts_sales %>% 
           model(reg = TSLM(tot_sales ~ trend() + season() + snap))
-total_sales %>%
+
+
+future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
+  mutate(snap = 
+    ifelse(
+      day(df2[847:874,]$date) == 1 |
+        day(df2[847:874,]$date) == 3 |
+        day(df2[847:874,]$date) == 5 |
+        day(df2[847:874,]$date) == 6 |
+        day(df2[847:874,]$date) == 7 |
+        day(df2[847:874,]$date) == 9 |
+        day(df2[847:874,]$date) == 11 |
+        day(df2[847:874,]$date) == 12 |
+        day(df2[847:874,]$date) == 13 |
+        day(df2[847:874,]$date) == 15,
+      "TRUE",
+      "FALSE"
+    )
+  )
+
+fit_lm %>%
+  forecast(new_data = future_souvenirs) %>%
+  autoplot(total_ts_sales)
+
+total_ts_sales %>%
      autoplot(tot_sales, col = "gray") +
-     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue") #too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
+     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue")
+#too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
 ```
 
 ```{r}
@@ -328,7 +381,3 @@ prices_wra <- prices[369235:701214,] # Selecting only the rows linked with FOODS
 merged_dataset <- merge(prices_wra,sales, by= "item_id")
 # Error: cannot allocate vector of size 4.7 Gb
 ```
-
-
-
-
