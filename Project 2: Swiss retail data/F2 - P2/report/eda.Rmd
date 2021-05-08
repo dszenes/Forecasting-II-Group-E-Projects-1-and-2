@@ -375,6 +375,40 @@ cons_raw_ts %>%
 ```
 
 
+```{r, fig.align='center'}
+
+# wrangling for the merge
+# merge dataset about retail sales and consumer expectation ( I assume that it is the column i63_index but not totally sure about that in the case do modifications)
+
+consumer_dataset <- cons_raw_ts %>% 
+  select( ...16, i63_index) %>% 
+  rename( year_month = ...16, consumer_index = i63_index ) %>% 
+  as_tsibble()
+
+merge_try <- merge(ts, consumer_dataset )
+
+# Correlation structure analysis:
+# inspect correlation between tot. sales and the first 8 columns
+merge_try %>% GGally::ggpairs(2:8)
+
+# inspect correlation between tot. sales and the last 6 columns
+merge_try %>% GGally::ggpairs(c(2,9,10,11,12,13,14))
+
+# inspect correlation between consumer index and tot retail sales
+merge_try %>% GGally::ggpairs(c(2,15))
+
+# slight negative correlation ( as expected ) 
+
+```
+
+
+
+
+
+
+
+
+
 ## beginning of analysis
 
 ```{r, fig.align='center'}
