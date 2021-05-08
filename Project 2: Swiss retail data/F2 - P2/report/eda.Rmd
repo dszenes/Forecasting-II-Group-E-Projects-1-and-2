@@ -338,17 +338,41 @@ ts %>%
 ts %>% gg_season(auto_fuel)
 ```
 
+# EDA on covid dataset and consumer expectation
+
+```{r, fig.align='center'}
+# covid
+
+covid<- cov_date %>%
+  mutate(hospital_cases = as.numeric(`Nombre de cas hospitalisés`),
+         deaths = as.numeric(`Nombre de décés`)) %>%
+  select(year_day,hospital_cases,deaths) %>%
+  as_tsibble()
+
+# Plot on hospital cases:
+
+autoplot(covid)
+
+# Plot on deaths cases
+
+covid %>%
+  autoplot(deaths)
 
 
 
+# consumer expectations
+# is i63_index the total index?
+ cons_raw_ts %>%
+  as_tsibble() %>%
+  autoplot(i63_index)
 
+cons_raw_ts %>%
+  as_tsibble() %>%
+  autoplot(i12_econ_exp)
 
+# The index seems to follow the economic expectation
 
-
-
-
-
-
+```
 
 
 ## beginning of analysis
@@ -442,3 +466,33 @@ accuracy(fit_arima)
 forecast(fit_arima, h = 48) %>% autoplot(ts)
 ```
 
+# Comparison between different models:
+
+fit_multi_models <- ts %>% 
+  model(
+  stepwise = ARIMA(tot),
+  search = ARIMA(tot, stepwise = FALSE),
+  expsmooth = ETS(tot),
+  TSLM = TSLM(log(tot)~ trend() + season()
+  ))
+
+
+glance(fit_multi_models) %>%  arrange(AICc) %>% select(1:7)
+
+
+fit_multi_models %>% forecast(h=48) %>% 
+  autoplot(ts)
+
+# not very useful visualization
+
+# Theoretically the best model:
+# 1 minute to run
+
+fit_best <- ts %>% 
+  model(best = ARIMA(tot, stepwise = FALSE,approximation = FALSE))
+
+fit_best %>% forecast(h = 48) %>% autoplot(ts)
+
+accuracy(fit_best)
+accuracy(fit_arima)
+```
