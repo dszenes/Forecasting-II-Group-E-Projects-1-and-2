@@ -300,7 +300,7 @@ report(fit)
 fit %>%
   gg_tsresiduals() #to check if residuals are white noise
 fit %>% 
-  orecast(h = 28) %>%
+  forecast(h = 28) %>%
   autoplot(monthly_sales_data) #Forecast
 #creation of snap benefits dummy variable
 
@@ -328,16 +328,16 @@ fit_lm <- total_ts_sales %>%
 future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
   mutate(snap = 
     ifelse(
-      day(df2[847:874,]$date) == 1 |
-        day(df2[847:874,]$date) == 3 |
-        day(df2[847:874,]$date) == 5 |
-        day(df2[847:874,]$date) == 6 |
-        day(df2[847:874,]$date) == 7 |
-        day(df2[847:874,]$date) == 9 |
-        day(df2[847:874,]$date) == 11 |
-        day(df2[847:874,]$date) == 12 |
-        day(df2[847:874,]$date) == 13 |
-        day(df2[847:874,]$date) == 15,
+      day(df[847:874,]$date) == 1 |
+        day(df[847:874,]$date) == 3 |
+        day(df[847:874,]$date) == 5 |
+        day(df[847:874,]$date) == 6 |
+        day(df[847:874,]$date) == 7 |
+        day(df[847:874,]$date) == 9 |
+        day(df[847:874,]$date) == 11 |
+        day(df[847:874,]$date) == 12 |
+        day(df[847:874,]$date) == 13 |
+        day(df[847:874,]$date) == 15,
       "TRUE",
       "FALSE"
     )
