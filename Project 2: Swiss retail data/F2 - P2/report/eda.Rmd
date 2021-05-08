@@ -399,6 +399,36 @@ merge_try %>% GGally::ggpairs(c(2,15))
 
 # slight negative correlation ( as expected ) 
 
+# correlations covid
+
+covid  %>% GGally::ggpairs(2:3)
+
+# hospital cases and deaths are highly correlated ( obviously ).
+
+# creating monthly observations for covid dataset ( not daily)
+covid_monthly <-
+covid %>%
+  mutate(year_month = yearmonth(year_day)) %>%
+  as_tibble() %>%
+  group_by(year_month) %>%
+  summarise(hospital_cases = sum(hospital_cases),
+            deaths = sum(deaths))  %>%
+  tsibble()
+
+
+
+new_dataset <- merge(covid_monthly,merge_try)
+
+
+# Let's see correlations in 2020
+
+new_dataset %>% GGally::ggpairs(2:4)
+# no significative correlation between covid cases and sales
+
+new_dataset %>% GGally::ggpairs(c(2:4,17))
+
+# No significant results
+
 ```
 
 
@@ -529,4 +559,18 @@ fit_best %>% forecast(h = 48) %>% autoplot(ts)
 
 accuracy(fit_best)
 accuracy(fit_arima)
+
+
+# regression with 3 different regressors
+
+fit_reg2 <- new_dataset %>%
+  as_tsibble()  %>%
+  model(reg = TSLM(tot ~  hospital_cases + deaths + consumer_index))
+
+report(fit_reg2)
+
+# We see that probably consumer index and deaths are not good predictors
+
+accuracy(fit_reg2)
+accuracy(fit_reg)
 ```
