@@ -215,95 +215,40 @@ cal %>%
 #snap benefits are distributed in sequence : 1,3,5,6,7,9,11,12,13,15 every month throughout the data set
 cal <- cal %>%
   select(-snap_CA, -snap_WI, -wday)
-
-cal <- cal %>% mutate(snap_TX = ifelse(cal$snap_TX == 1, TRUE,FALSE))
-
 ```
 
 ```{r}
+#cal dataset manipulation: from tibble to tsibble
 cal <- cal %>% 
   mutate(date = date(
     as.Date(date,
       format = "%Y-%m-%d"))) %>%
   as_tsibble()#chr to date
 
+
 cal2014 <- cal %>%
   filter_index("2014-01-01" ~"2016-05-23") %>%
-  select(date, name_1, name_2, snap_TX)
-
-# the goal of those columns is to dummy them -> chr to factor
-cal2014$name_1 <- as.factor(cal2014$name_1) 
-cal2014$name_2 <- as.factor(cal2014$name_2)
+  select(date, name_1, name_2, snap_TX, wm_yr_wk)
 ```
 
 ```{r}
-#merging the sales & cal data set
-sales_ts_fill <- sales_ts_fill %>% rename(date = day)
-df <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
+library(stringr)
+prices <- prices %>%
+  filter_all(any_vars(str_detect(., pattern = "FOOD")))
 
-df <- df %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
-df %>% filter(is.na(sales))
-# as we've future date in cal dataset, we've some NA in the df data set
-#as we've to predict for h=28 days, we've to forecast until 2016-04-23
-#in order to forecast h=28, we've to take into account 4 events (+snap benefits):
-#Pesach End
-#OrthodoxEaster
-#Cinco De Mayo
-#Mother's day
+prices %>%
+  ggplot(aes(wm_yr_wk, sell_price)) +
+  geom_point()
+
+#we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
 ```
 
 ```{r}
-#hierarchy : department -> store
-sales_aggr <- df %>%
-  filter_index(.~"2016-04-25") %>% #remove the future cal date
-    aggregate_key(dept_id / store_id, sales = sum(sales)) 
-
-sales_aggr %>%
-  filter(is_aggregated(store_id)) %>%
-  autoplot(sales) +
-  ylab("Sales") +
-  facet_wrap(vars(dept_id), scales =
-               "free_y"
-             , ncol = 3) +
-  theme(legend.position =
-          "none") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+cal_price <- full_join(as_tibble(cal), as_tibble(prices), by = "wm_yr_wk") %>% select(-wm_yr_wk)
 ```
 
 ```{r}
-fit <- sales_aggr %>%
-  filter(is_aggregated(store_id)) %>% 
-  model(base = ARIMA(sales)) %>%
-  reconcile(
-    bu = bottom_up(base)
-  )
-
-
-fc <- fit %>% forecast(h = 28)
-
-fc %>%
-  filter(is_aggregated(store_id)) %>%
-  autoplot(
-    sales_aggr
-  )
-#the model do a poor job for dep 1 and 2
-#how can we fix this issue?
-```
-
-
-
-```{r}
-## ARIMA  + linear regression (add dummy with snap benefits + special events)
-fit <- monthly_sales_data %>% 
-     model(arima = ARIMA(tot_sales))
-report(fit)
-fit %>%
-  gg_tsresiduals() #to check if residuals are white noise
-fit %>% 
-  forecast(h = 28) %>%
-  autoplot(monthly_sales_data) #Forecast
 #creation of snap benefits dummy variable
-
 total_ts_sales$snap <-
   ifelse(
     day(total_sales$day) == 1 |
@@ -320,6 +265,32 @@ total_ts_sales$snap <-
     "FALSE"
   )
 #or O and 1
+```
+
+```{r}
+#merging the sales & cal data set
+total_ts_sales <- total_ts_sales %>% rename(date = day)
+df <- full_join(as_tibble(cal2014), as_tibble(total_ts_sales), by = "date")
+
+df <- df %>% as_tsibble(index = date)
+```
+
+```{r}
+sales_ts_fill <- sales_ts_fill %>% rename(date = day)
+df2 <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
+df2 <- df2 %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
+
+```
+
+```{r}
+#creation of events dummy variable
+df <-
+  fastDummies::dummy_cols(df, select_columns = c("name_1", "name_2"),
+                          remove_first_dummy = TRUE) %>%
+  select(-name_1, -name_2, -snap_TX)
+```
+
+```{r}
 #Linear model
 fit_lm <- total_ts_sales %>% 
           model(reg = TSLM(tot_sales ~ trend() + season() + snap))
@@ -346,24 +317,55 @@ future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
 fit_lm %>%
   forecast(new_data = future_souvenirs) %>%
   autoplot(total_ts_sales)
-
-total_ts_sales %>%
-     autoplot(tot_sales, col = "gray") +
-     geom_line(data = augment(fit_lm), aes(y = .fitted), col = "blue")
-#too compact, should make it wider so that can interpret it better, or maybe plot is not correct ?
 ```
 
 ```{r}
-## Prices data
-product_list_2 <- unique(prices$item_id)
+#ARIMA model
+fit_ARIMA <- total_ts_sales %>% 
+          model(reg = ARIMA(tot_sales ~ trend() + season() + snap))
 
-# we only have sales data for foods products, but we have prices for other products 
-prices %>%
-  filter(item_id == product_list[1]) %>%
-  ggplot(aes(wm_yr_wk, sell_price)) +
-  geom_point()
+fit_ARIMA %>%
+  forecast(new_data = future_souvenirs) %>%
+  autoplot(total_ts_sales)
+```
 
-#we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
+
+```{r}
+#hierarchy : department -> store
+sales_aggr <- df2 %>%
+  filter_index(.~"2016-04-25") %>% #remove the future cal date
+    aggregate_key(dept_id / store_id, sales = sum(sales)) 
+
+sales_aggr %>%
+  filter(is_aggregated(store_id)) %>%
+  autoplot(sales) +
+  ylab("Sales") +
+  facet_wrap(vars(dept_id), scales =
+               "free_y"
+             , ncol = 3) +
+  theme(legend.position =
+          "none") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+fit_aggr <- sales_aggr %>%
+  filter(is_aggregated(store_id)) %>% 
+  model(base = ARIMA(sales)) %>%
+  reconcile(
+    bu = bottom_up(base)
+  )
+
+
+fc <- fit_aggr %>% forecast(h = 28)
+
+fc %>%
+  filter(is_aggregated(store_id)) %>%
+  autoplot(
+    sales_aggr
+  )
+#the model do a poor job for dep 1 and 2
+#how can we fix this issue?
 ```
 
 ```{r}
