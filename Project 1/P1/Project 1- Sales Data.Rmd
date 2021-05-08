@@ -77,7 +77,7 @@ monthly_sales_data %>%
   autoplot()
 
 monthly_sales_data %>%
-  filter(year_month > yearmonth("2011 Jan")) %>%
+  filter(year_month > yearmonth("2013 Dec") & year_month < yearmonth("2016 Apr")) %>%
   gg_subseries(tot_sales) + ylab("Total Sales") + xlab("Year")
 #as there is a lot of data
 #is it useful to have all the time information?
@@ -128,8 +128,7 @@ sales_ts_miss <- sales_ts %>%
 
 sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
   model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
-  interpolate(sales_ts_miss) 
-
+  interpolate(sales_ts_miss)
 ```
 
 ```{r}
@@ -268,6 +267,10 @@ total_ts_sales$snap <-
 ```
 
 ```{r}
+ETS <- total_ts_sales %>% model(ETS(tot_sales))
+```
+
+```{r}
 #merging the sales & cal data set
 total_ts_sales <- total_ts_sales %>% rename(date = day)
 df <- full_join(as_tibble(cal2014), as_tibble(total_ts_sales), by = "date")
@@ -285,16 +288,38 @@ df2 <- df2 %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
 ```{r}
 #creation of events dummy variable
 df <-
-  fastDummies::dummy_cols(df, select_columns = c("name_1", "name_2"),
-                          remove_first_dummy = TRUE) %>%
+  fastDummies::dummy_cols(df, select_columns = c("name_1", "name_2")) %>%
   select(-name_1, -name_2, -snap_TX)
+df <- df %>% as_tsibble()
+```
+
+```{r}
+#ETS model
+ETS <- total_ts_sales %>% model(ETS(tot_sales))
+ETS %>%
+  forecast(h=28) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+```
+
+```{r}
+#MEAN + NAIVE + SNAIVE
+
+sales_fit <- total_ts_sales %>%
+  model(
+    Mean = MEAN(tot_sales),
+    `Naïve` = NAIVE(tot_sales),
+    `Seasonal naïve` = SNAIVE(tot_sales)
+  )
+
+sales_fc <- sales_fit %>%
+  forecast(h=28) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
 ```{r}
 #Linear model
-fit_lm <- total_ts_sales %>% 
-          model(reg = TSLM(tot_sales ~ trend() + season() + snap))
-
+fit_lm <- df %>% 
+          model(TSLM(tot_sales ~ trend() + season() + snap))
 
 future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
   mutate(snap = 
@@ -316,17 +341,63 @@ future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
 
 fit_lm %>%
   forecast(new_data = future_souvenirs) %>%
-  autoplot(total_ts_sales)
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+
 ```
 
 ```{r}
-#ARIMA model
-fit_ARIMA <- total_ts_sales %>% 
-          model(reg = ARIMA(tot_sales ~ trend() + season() + snap))
+#event dummy 1st try
+fit_all_lm <- df %>%
+  model(TSLM(
+      tot_sales ~ trend() +
+        season() + snap +
+        `name_1_Mother's day` +
+        name_1_OrthodoxEaster + 
+        `name_1_Pesach End` + `name_1_Cinco De Mayo`
+  ))
 
-fit_ARIMA %>%
+
+future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
+  mutate(`name_1_Cinco De Mayo` = ifelse(df[847:874,]$`name_1_Cinco De Mayo` == 1, "TRUE", "FALSE")) %>%
+  mutate(`name_1_Mother's day` = ifelse(df[847:874,]$`name_1_Mother's day` == 1, "TRUE", "FALSE")) %>%
+  mutate(name_1_OrthodoxEaster = ifelse(df[847:874,]$name_1_OrthodoxEaster == 1, "TRUE", "FALSE")) %>%
+  mutate(`name_1_Pesach End` = ifelse(df[847:874,]$`name_1_Pesach End` == 1, "TRUE", "FALSE")) %>%
+  mutate(snap = 
+           ifelse(
+             day(df[847:874,]$date) == 1 |
+               day(df[847:874,]$date) == 3 |
+               day(df[847:874,]$date) == 5 |
+               day(df[847:874,]$date) == 6 |
+               day(df[847:874,]$date) == 7 |
+               day(df[847:874,]$date) == 9 |
+               day(df[847:874,]$date) == 11 |
+               day(df[847:874,]$date) == 12 |
+               day(df[847:874,]$date) == 13 |
+               day(df[847:874,]$date) == 15,
+             "TRUE",
+             "FALSE"
+           )
+  )
+
+fit_all_lm %>%
   forecast(new_data = future_souvenirs) %>%
-  autoplot(total_ts_sales)
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+```
+
+
+```{r}
+#ARIMA model -> just with snap dummy
+fit_ARIMA1 <- df %>% 
+          model(ARIMA(tot_sales ~ trend() + season() + snap))
+fit_ARIMA2 <- df %>% 
+          model(ARIMA(tot_sales ~ snap))
+
+fit_ARIMA1 %>%
+  forecast(new_data = future_souvenirs) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+fit_ARIMA2 %>%
+  forecast(new_data = future_souvenirs) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
 
