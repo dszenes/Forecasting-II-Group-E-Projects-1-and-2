@@ -311,7 +311,7 @@ sales_fit <- total_ts_sales %>%
     `Seasonal naïve` = SNAIVE(tot_sales)
   )
 
-sales_fc <- sales_fit %>%
+sales_fit %>%
   forecast(h=28) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
@@ -405,18 +405,32 @@ fit_ARIMA2 %>%
 #hierarchy : department -> store
 sales_aggr <- df2 %>%
   filter_index(.~"2016-04-25") %>% #remove the future cal date
-    aggregate_key(dept_id / store_id, sales = sum(sales)) 
+  aggregate_key(store_id/ dept_id / item_id, sales = sum(sales))
 
 sales_aggr %>%
   filter(is_aggregated(store_id)) %>%
   autoplot(sales) +
   ylab("Sales") +
-  facet_wrap(vars(dept_id), scales =
-               "free_y"
-             , ncol = 3) +
   theme(legend.position =
           "none") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+sales_aggr %>%
+  filter(!is_aggregated(store_id),!is_aggregated(dept_id), is_aggregated(item_id)) %>%
+  autoplot(sales) +
+  ylab("Sales") +
+  theme(legend.position =
+          "none") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+sales_aggr %>%
+  filter(!is_aggregated(store_id),!is_aggregated(dept_id), !is_aggregated(item_id)) %>%
+  autoplot(sales) +
+  ylab("Sales") +
+  theme(legend.position =
+          "none") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
 ```
 
 ```{r}
