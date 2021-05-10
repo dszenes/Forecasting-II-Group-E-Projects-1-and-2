@@ -127,8 +127,12 @@ sales_ts_miss <- sales_ts %>%
   fill_gaps() #replace them by missing values
 
 sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missing values
-  model(naive = TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
+  model(TSLM(sales ~ trend())) %>% # Estimate tot_sales for all periods
   interpolate(sales_ts_miss)
+sales_ts_fill %>% filter(sales < 0)
+sales_ts_fill$sales <- abs(sales_ts_fill$sales)
+sales_ts_fill %>% filter(is.na(sales))
+
 ```
 
 ```{r}
@@ -207,7 +211,7 @@ cal %>%
 # 5 days with 2 events, these might appear as outliers in the dataset
 cal %>%
   mutate(day = strftime(cal$date, format = "%d")) %>%
-  select( day, snap_TX)  %>%
+  select(day, snap_TX)  %>%
   ggplot(aes(day, snap_TX)) +
   geom_point() 
 
@@ -358,32 +362,32 @@ fit_all_lm <- df %>%
 
 
 future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
-  mutate(`name_1_Cinco De Mayo` = ifelse(df[847:874,]$`name_1_Cinco De Mayo` == 1, "TRUE", "FALSE")) %>%
-  mutate(`name_1_Mother's day` = ifelse(df[847:874,]$`name_1_Mother's day` == 1, "TRUE", "FALSE")) %>%
-  mutate(name_1_OrthodoxEaster = ifelse(df[847:874,]$name_1_OrthodoxEaster == 1, "TRUE", "FALSE")) %>%
-  mutate(`name_1_Pesach End` = ifelse(df[847:874,]$`name_1_Pesach End` == 1, "TRUE", "FALSE")) %>%
-  mutate(snap = 
-           ifelse(
-             day(df[847:874,]$date) == 1 |
-               day(df[847:874,]$date) == 3 |
-               day(df[847:874,]$date) == 5 |
-               day(df[847:874,]$date) == 6 |
-               day(df[847:874,]$date) == 7 |
-               day(df[847:874,]$date) == 9 |
-               day(df[847:874,]$date) == 11 |
-               day(df[847:874,]$date) == 12 |
-               day(df[847:874,]$date) == 13 |
-               day(df[847:874,]$date) == 15,
-             "TRUE",
-             "FALSE"
-           )
+  mutate(`name_1_Cinco De Mayo` = ifelse(df[847:874, ]$`name_1_Cinco De Mayo` == 1, "TRUE", "FALSE")) %>%
+  mutate(`name_1_Mother's day` = ifelse(df[847:874, ]$`name_1_Mother's day` == 1, "TRUE", "FALSE")) %>%
+  mutate(name_1_OrthodoxEaster = ifelse(df[847:874, ]$name_1_OrthodoxEaster == 1, "TRUE", "FALSE")) %>%
+  mutate(`name_1_Pesach End` = ifelse(df[847:874, ]$`name_1_Pesach End` == 1, "TRUE", "FALSE")) %>%
+  mutate(
+    snap =
+      ifelse(
+        day(df[847:874, ]$date) == 1 |
+          day(df[847:874, ]$date) == 3 |
+          day(df[847:874, ]$date) == 5 |
+          day(df[847:874, ]$date) == 6 |
+          day(df[847:874, ]$date) == 7 |
+          day(df[847:874, ]$date) == 9 |
+          day(df[847:874, ]$date) == 11 |
+          day(df[847:874, ]$date) == 12 |
+          day(df[847:874, ]$date) == 13 |
+          day(df[847:874, ]$date) == 15,
+        "TRUE",
+        "FALSE"
+      )
   )
 
 fit_all_lm %>%
   forecast(new_data = future_souvenirs) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
-
 
 ```{r}
 #ARIMA model -> just with snap dummy
@@ -400,15 +404,15 @@ fit_ARIMA2 %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
-
 ```{r}
 #hierarchy : department -> store
 sales_aggr <- df2 %>%
-  filter_index(.~"2016-04-25") %>% #remove the future cal date
-  aggregate_key(store_id/ dept_id / item_id, sales = sum(sales))
+  filter_index("2016-01-01"~"2016-04-25") %>% #remove the future cal date
+  aggregate_key(dept_id / item_id, sales = sum(sales))
 
 sales_aggr %>%
-  filter(is_aggregated(store_id)) %>%
+  filter(!is_aggregated(dept_id), !is_aggregated(item_id)) %>%
+  filter(sales > 50) %>% 
   autoplot(sales) +
   ylab("Sales") +
   theme(legend.position =
@@ -416,26 +420,15 @@ sales_aggr %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 sales_aggr %>%
-  filter(!is_aggregated(store_id),!is_aggregated(dept_id), is_aggregated(item_id)) %>%
+  filter(is_aggregated(item_id)) %>%
   autoplot(sales) +
-  ylab("Sales") +
-  theme(legend.position =
-          "none") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-sales_aggr %>%
-  filter(!is_aggregated(store_id),!is_aggregated(dept_id), !is_aggregated(item_id)) %>%
-  autoplot(sales) +
-  ylab("Sales") +
-  theme(legend.position =
-          "none") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
+  facet_wrap(vars(dept_id), scales = "free_y", ncol = 2) +
+  theme(legend.position = "none")
 ```
 
 ```{r}
 fit_aggr <- sales_aggr %>%
-  filter(is_aggregated(store_id)) %>% 
+  filter(is_aggregated(item_id)) %>% 
   model(base = ARIMA(sales)) %>%
   reconcile(
     bu = bottom_up(base)
@@ -445,11 +438,11 @@ fit_aggr <- sales_aggr %>%
 fc <- fit_aggr %>% forecast(h = 28)
 
 fc %>%
-  filter(is_aggregated(store_id)) %>%
   autoplot(
     sales_aggr
   )
-#the model do a poor job for dep 1 and 2
+#the model do a poor job for dep 1
+#there is something that i dont understand, the code is wrong...
 #how can we fix this issue?
 ```
 
