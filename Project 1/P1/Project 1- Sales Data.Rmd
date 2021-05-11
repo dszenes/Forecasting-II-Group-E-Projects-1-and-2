@@ -411,17 +411,15 @@ fit_ARIMA2 %>%
 ```
 
 ```{r}
-#Putting the different models together to compare their forecasts
-all_models <- df %>%
-          model(tslm = TSLM(tot_sales ~ trend() + season() + snap),
-                arima1 = ARIMA(tot_sales ~ trend() + season() + snap),
-                arima2 =ARIMA(tot_sales ~ snap))
+#compare the forecasts from different models, which one provides forecasts closest to real data
+tr <- total_ts_sales %>% filter(date <= "2016-03-27")
+tr2 <- tr %>% model(ets = ETS(tot_sales), 
+                    tslm = TSLM(tot_sales ~ trend() + season()), 
+                    arima = ARIMA(tot_sales))
+tr_fc <- tr2 %>% forecast(h = 28) 
+tr_fc %>% autoplot(total_ts_sales %>% filter_index("2016"~.))
+tr_fc %>% accuracy(total_ts_sales) #check accuracy of the models
 
-all_models_fc <- all_models %>% forecast(new_data = future_souvenirs) 
-all_models_fc %>% autoplot(total_ts_sales  %>% filter_index("2016"~.))
-
-#Check their accuracy
-all_models %>% accuracy()
 ```
 
 
