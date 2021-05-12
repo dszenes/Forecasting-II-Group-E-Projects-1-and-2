@@ -132,7 +132,6 @@ sales_ts_fill <- sales_ts_miss %>% # Fit TSLM model to the data containing missi
 sales_ts_fill %>% filter(sales < 0)
 sales_ts_fill$sales <- abs(sales_ts_fill$sales)
 sales_ts_fill %>% filter(is.na(sales))
-
 ```
 
 ```{r}
@@ -286,13 +285,12 @@ df <- df %>% as_tsibble(index = date)
 sales_ts_fill <- sales_ts_fill %>% rename(date = day)
 df2 <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
 df2 <- df2 %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
-
 ```
 
 ```{r}
 #creation of events dummy variable
 df <-
-  fastDummies::dummy_cols(df, select_columns = c("name_1", "name_2")) %>%
+  fastDummies::dummy_cols(df, select_columns = c("name_1", "name_2"), remove_first_dummy = TRUE) %>%
   select(-name_1, -name_2, -snap_TX)
 df <- df %>% as_tsibble()
 ```
@@ -307,7 +305,6 @@ ETS %>%
 
 ```{r}
 #MEAN + NAIVE + SNAIVE
-
 sales_fit <- total_ts_sales %>%
   model(
     Mean = MEAN(tot_sales),
@@ -316,12 +313,12 @@ sales_fit <- total_ts_sales %>%
   )
 
 sales_fit %>%
-  forecast(h=28) %>%
+  forecast(h = 28) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
 ```{r}
-#Linear model
+# LINEAR REGRESSION : only snap dummy
 fit_lm <- df %>% 
           model(TSLM(tot_sales ~ trend() + season() + snap))
 
@@ -350,7 +347,7 @@ fit_lm %>%
 ```
 
 ```{r}
-#event dummy 1st try
+# LINEAR REGRESSION : event dummy 1st try
 fit_all_lm <- df %>%
   model(TSLM(
       tot_sales ~ trend() +
@@ -361,12 +358,87 @@ fit_all_lm <- df %>%
   ))
 
 
-future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
-  mutate(`name_1_Cinco De Mayo` = ifelse(df[847:874, ]$`name_1_Cinco De Mayo` == 1, "TRUE", "FALSE")) %>%
-  mutate(`name_1_Mother's day` = ifelse(df[847:874, ]$`name_1_Mother's day` == 1, "TRUE", "FALSE")) %>%
-  mutate(name_1_OrthodoxEaster = ifelse(df[847:874, ]$name_1_OrthodoxEaster == 1, "TRUE", "FALSE")) %>%
-  mutate(`name_1_Pesach End` = ifelse(df[847:874, ]$`name_1_Pesach End` == 1, "TRUE", "FALSE")) %>%
+future_souvenirs <-
+  new_data(total_ts_sales, n = 28) %>%
   mutate(
+    `name_1_Cinco De Mayo` = df[847:874,]$`name_1_Cinco De Mayo`,
+    `name_1_Mother's day` =
+      ifelse(df[847:874,]$`name_1_Mother's day` == 1, "TRUE", "FALSE"),
+    name_1_OrthodoxEaster =
+      ifelse(df[847:874,]$name_1_OrthodoxEaster == 1, "TRUE", "FALSE"),
+    `name_1_Pesach End` =
+      ifelse(df[847:874,]$`name_1_Pesach End` == 1, "TRUE", "FALSE"),
+    snap =
+      ifelse(
+        day(df[847:874,]$date) == 1 |
+          day(df[847:874,]$date) == 3 |
+          day(df[847:874,]$date) == 5 |
+          day(df[847:874,]$date) == 6 |
+          day(df[847:874,]$date) == 7 |
+          day(df[847:874,]$date) == 9 |
+          day(df[847:874,]$date) == 11 |
+          day(df[847:874,]$date) == 12 |
+          day(df[847:874,]$date) == 13 |
+          day(df[847:874,]$date) == 15,
+        "TRUE",
+        "FALSE"
+      )
+  )
+
+fit_all_lm %>%
+  forecast(new_data = future_souvenirs) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+```
+
+```{r}
+df[5:36] <- sapply(df[5:36], as.logical)
+
+paste_col <- paste0(colnames(df)[5:36])
+mod <- paste("tot_sales ~ ", paste(paste_col, collapse = " + "))
+
+#LINEAR REGRESSION take into account all the event
+fit_generalized <- df %>%
+  model(
+    TSLM(
+      tot_sales ~ trend() +
+        season() + snap +
+        `name_1_Chanukah End` +
+        name_1_Christmas +
+        `name_1_Cinco De Mayo`+
+        name_1_ColumbusDay +
+        name_1_Easter +
+        `name_1_Eid al-Fitr` +
+        name_1_EidAlAdha +
+        `name_1_Father's day` +
+        name_1_Halloween +
+        name_1_IndependenceDay +
+        name_1_LaborDay +
+        name_1_LentStart +
+        name_1_LentWeek2 +
+        name_1_MartinLutherKingDay +
+        name_1_MemorialDay +
+        `name_1_Mother's day` +
+        name_1_NBAFinalsEnd +
+        name_1_NBAFinalsStart +
+        name_1_NewYear +
+        name_1_OrthodoxChristmas +
+        name_1_OrthodoxEaster +
+        `name_1_Pesach End` +
+        name_1_PresidentsDay +
+        `name_1_Purim End` +
+        `name_1_Ramadan starts` +
+        name_1_StPatricksDay +
+        name_1_SuperBowl +
+        name_1_Thanksgiving +
+        name_1_ValentinesDay +
+        name_1_VeteransDay +
+        `name_2_Father's day` +
+        name_2_OrthodoxEaster
+    )
+  )
+
+future_test <-
+  cbind(new_data(total_ts_sales, n = 28), df[847:874, 5:36]) %>% mutate(
     snap =
       ifelse(
         day(df[847:874, ]$date) == 1 |
@@ -382,33 +454,76 @@ future_souvenirs <- new_data(total_ts_sales, n = 28) %>%
         "TRUE",
         "FALSE"
       )
-  )
+  ) %>% as_tsibble()
 
-fit_all_lm %>%
-  forecast(new_data = future_souvenirs) %>%
+fit_generalized %>%
+  forecast(new_data = future_test) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
+
 ```
 
 ```{r}
 #ARIMA model -> just with snap dummy
 fit_ARIMA1 <- df %>% 
           model(ARIMA(tot_sales ~ trend() + season() + snap))
-fit_ARIMA2 <- df %>% 
-          model(ARIMA(tot_sales ~ snap))
-
-
-#Just to check that no evidence against white noise is detected
-fit_ARIMA1 %>% gg_tsresiduals()
-fit_ARIMA2 %>% gg_tsresiduals()
-
 
 fit_ARIMA1 %>%
   forecast(new_data = future_souvenirs) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
-fit_ARIMA2 %>%
-  forecast(new_data = future_souvenirs) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
+
+```{r}
+#ARIMA model with all event in order to generalize
+fit_ARIMA1_1 <- df %>% 
+          model(ARIMA(tot_sales ~ trend() + season() + snap +
+        `name_1_Chanukah End` +
+        name_1_Christmas +
+        `name_1_Cinco De Mayo`+
+        name_1_ColumbusDay +
+        name_1_Easter +
+        `name_1_Eid al-Fitr` +
+        name_1_EidAlAdha +
+        `name_1_Father's day` +
+        name_1_Halloween +
+        name_1_IndependenceDay +
+        name_1_LaborDay +
+        name_1_LentStart +
+        name_1_LentWeek2 +
+        name_1_MartinLutherKingDay +
+        name_1_MemorialDay +
+        `name_1_Mother's day` +
+        name_1_NBAFinalsEnd +
+        name_1_NBAFinalsStart +
+        name_1_NewYear +
+        name_1_OrthodoxChristmas +
+        name_1_OrthodoxEaster +
+        `name_1_Pesach End` +
+        name_1_PresidentsDay +
+        `name_1_Purim End` +
+        `name_1_Ramadan starts` +
+        name_1_StPatricksDay +
+        name_1_SuperBowl +
+        name_1_Thanksgiving +
+        name_1_ValentinesDay +
+        name_1_VeteransDay +
+        `name_2_Father's day` +
+        name_2_OrthodoxEaster
+    )
+  )
+
+
+fit_ARIMA1_1 %>%
+  forecast(new_data = future_test) %>%
+  autoplot(total_ts_sales %>% filter_index("2016"~.))
+
+```
+
+```{r}
+#Just to check that no evidence against white noise is detected
+fit_ARIMA1 %>% gg_tsresiduals()
+fit_ARIMA1_1 %>% gg_tsresiduals()
+```
+
 
 ```{r}
 #compare the forecasts from different models, which one provides forecasts closest to real data
@@ -419,15 +534,91 @@ tr2 <- tr %>% model(ets = ETS(tot_sales),
 tr_fc <- tr2 %>% forecast(h = 28) 
 tr_fc %>% autoplot(total_ts_sales %>% filter_index("2016"~.))
 tr_fc %>% accuracy(total_ts_sales) #check accuracy of the models
-
 ```
 
 
 ```{r}
+#check the accuracy of the ARIMA model
+beer_fit <- df %>% filter_index(. ~ "2015-12-31") %>% 
+          model(ARIMA(tot_sales ~ trend() + season() + snap +
+        `name_1_Chanukah End` +
+        name_1_Christmas +
+        `name_1_Cinco De Mayo`+
+        name_1_ColumbusDay +
+        name_1_Easter +
+        `name_1_Eid al-Fitr` +
+        name_1_EidAlAdha +
+        `name_1_Father's day` +
+        name_1_Halloween +
+        name_1_IndependenceDay +
+        name_1_LaborDay +
+        name_1_LentStart +
+        name_1_LentWeek2 +
+        name_1_MartinLutherKingDay +
+        name_1_MemorialDay +
+        `name_1_Mother's day` +
+        name_1_NBAFinalsEnd +
+        name_1_NBAFinalsStart +
+        name_1_NewYear +
+        name_1_OrthodoxChristmas +
+        name_1_OrthodoxEaster +
+        `name_1_Pesach End` +
+        name_1_PresidentsDay +
+        `name_1_Purim End` +
+        `name_1_Ramadan starts` +
+        name_1_StPatricksDay +
+        name_1_SuperBowl +
+        name_1_Thanksgiving +
+        name_1_ValentinesDay +
+        name_1_VeteransDay +
+        `name_2_Father's day` +
+        name_2_OrthodoxEaster
+    )
+  )
+
+beer_train <- df %>% filter_index(. ~ "2015-12-31")
+
+beer_fit <- beer_train %>% 
+  model(ARIMA(tot_sales ~ trend() + season() + snap))
+
+future_beer <-
+  cbind(new_data(beer_train, n = 28), df[847:874, 5:36]) %>% mutate(
+    snap =
+      ifelse(
+        day(df[847:874, ]$date) == 1 |
+          day(df[847:874, ]$date) == 3 |
+          day(df[847:874, ]$date) == 5 |
+          day(df[847:874, ]$date) == 6 |
+          day(df[847:874, ]$date) == 7 |
+          day(df[847:874, ]$date) == 9 |
+          day(df[847:874, ]$date) == 11 |
+          day(df[847:874, ]$date) == 12 |
+          day(df[847:874, ]$date) == 13 |
+          day(df[847:874, ]$date) == 15,
+        "TRUE",
+        "FALSE"
+      )
+  ) %>% as_tsibble()
+
+beer_fc <- beer_fit %>%
+  forecast(new_data = future_beer)
+
+beer_fc %>%
+  autoplot(
+    df %>% filter_index("2016")
+  )
+```
+
+```{r}
+View(bind_rows(glance(fit_ARIMA1_1), glance(fit_lm), glance(fit_all_lm), glance(fit_generalized))
+)
+```
+
+```{r}
 #hierarchy : department -> store
 sales_aggr <- df2 %>%
-  filter_index("2016-01-01"~"2016-04-25") %>% #remove the future cal date
-  aggregate_key(dept_id / item_id, sales = sum(sales))
+  filter_index("2016-01-01"~"2016-01-29") %>% #remove the future cal date
+  aggregate_key((dept_id / item_id), sales = sum(sales))
 
 sales_aggr %>%
   filter(!is_aggregated(dept_id), !is_aggregated(item_id)) %>%
@@ -445,25 +636,32 @@ sales_aggr %>%
   theme(legend.position = "none")
 ```
 
-```{r}
+```{r message=TRUE, warning=TRUE}
+#WARNING : sooooo much timeeee
 fit_aggr <- sales_aggr %>%
-  filter(is_aggregated(item_id)) %>% 
-  model(base = ARIMA(sales)) %>%
-  reconcile(
+  model(base = ARIMA(sales)) %>% reconcile(
     bu = bottom_up(base)
   )
-
 
 fc <- fit_aggr %>% forecast(h = 28)
 
 fc %>%
+  filter(is_aggregated(item_id)) %>%
   autoplot(
     sales_aggr
   )
+
+fc %>%
+  filter(!is_aggregated(dept_id), !is_aggregated(item_id)) %>%
+    filter(.mean > 50) %>%
+  autoplot(
+    sales_aggr
+  )
+
 #the model do a poor job for dep 1
-#there is something that i dont understand, the code is wrong...
 #how can we fix this issue?
 ```
+
 
 ```{r}
 # Little overlooking on total sales time serie features
