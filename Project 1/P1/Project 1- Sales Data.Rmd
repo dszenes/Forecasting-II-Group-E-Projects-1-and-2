@@ -605,24 +605,3 @@ fc %>%
   filter(is_aggregated(item_id), is_aggregated(store_id)) %>%
   accuracy(data = sales_aggr)
 ```
-
-```{r}
-fit_aggr_test <- sales_aggr %>% 
-  filter_index("2016-01-01"~"2016-01-29") %>%
-  model(base = ARIMA(sales ~ PDQ(0, 0, 0) + fourier(K = 2))) %>% reconcile(
-    td = top_down(base)
-  )
-
-fc2 <- fit_aggr_test %>% forecast(h = 28)
-
-fc2 %>%
-  filter(is_aggregated(store_id)) %>%
-  autoplot(
-    sales_aggr
-  )
-
-fc2 %>% 
-  filter(.model == "td") %>% 
-    filter(is_aggregated(item_id), is_aggregated(store_id)) %>%
-  accuracy(data = sales_aggr)
-```
