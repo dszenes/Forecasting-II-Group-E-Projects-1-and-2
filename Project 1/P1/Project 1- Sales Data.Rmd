@@ -39,7 +39,7 @@ total_sales %>% autoplot()
 #seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
 #total_sales %>%
 #  mutate(Month = yearmonth(day)) %>%
- # filter( Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
+# filter(Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
 #  as_tibble()
 ```
 
@@ -213,7 +213,7 @@ cal <- cal %>%
   mutate(date = date(
     as.Date(date,
       format = "%Y-%m-%d"))) %>%
-  as_tsibble()#chr to date
+  as_tsibble() #chr to date
 
 
 cal2014 <- cal %>%
@@ -269,7 +269,11 @@ df <- df %>% as_tsibble(index = date)
 #creation of the data set used for the aggregation part
 sales_ts_fill <- sales_ts_fill %>% rename(date = day)
 df2 <- full_join(as_tibble(cal2014), as_tibble(sales_ts_fill), by = "date")
+df2$name_1 <- ifelse(df2$name_1 == "", "NOEVENT",df2$name_1)
+df3 <- df2 %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id, name_1, snap_TX))
 df2 <- df2 %>% as_tsibble(index = date, key = c(store_id, dept_id, item_id))
+
+
 ```
 
 ```{r}
@@ -561,8 +565,15 @@ accuracy(backward_arima)) %>% arrange(MASE)
 #top-down approach
 # Parent = store
 # Child = item_id
-sales_aggr <- df2 %>%
-  aggregate_key((store_id/item_id), sales = sum(sales))
+
+#we've tried some CV but out of memory: Error: vector memory exhausted (limit reached?)
+#sales_aggr.tr <- df2 %>% 
+#  stretch_tsibble(.init = 2, .step = 1) %>%
+#  aggregate_key((store_id/item_id), sales = sum(sales))
+
+
+sales_aggr <- df2 %>% #since the data set is huge, we decide not to CV
+  aggregate_key((store_id/item_id), sales = sum(sales)) 
 
 sales_aggr %>%
   filter(!is_aggregated(store_id), !is_aggregated(item_id)) %>%
@@ -580,6 +591,8 @@ sales_aggr %>%
 ```
 
 ```{r message=TRUE, warning=TRUE}
+#MODEL TRAINING
+
 #Top down reconciliation requires strictly hierarchical structures
 #we can't add dummys if we've to forecast individual items
 #we've to ask max if we can add dummys into a top down approach
@@ -588,8 +601,9 @@ sales_aggr %>%
 
 #WARNING : sooooo much timeeee but it works ;) (15-20 min)
 fit_aggr <- sales_aggr %>%
-  filter_index("2015-04-25"~"2015-05-23") %>% 
+  filter_index("2015-03-26"~"2015-04-25") %>% 
   model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
+
 
 fc <- fit_aggr %>% forecast(h = 28)
 
@@ -597,41 +611,57 @@ fc %>%
   filter(is_aggregated(item_id)) %>%
   autoplot(
     sales_aggr %>% filter_index("2015-04"~"2015-07")
-  )
+  ) #visual check of our prediction on total sales
 
 fc %>%
   filter(!is_aggregated(item_id)) %>%
   filter(item_id == "FOODS_1_001") %>% 
   autoplot(
     sales_aggr %>% filter_index("2016"~.)
-  )
+  ) # visual check of our prediction on some individual items
+
+a <- fc %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(a[5:9], median) #median of forecasting score for individual item
+#0.889239 MASE for individual prediction -> not bad
+#RMSSE  = 0.7113033 -> quite good!
 
 fc %>%
-  filter(is_aggregated(item_id), is_aggregated(store_id)) %>%
+  filter(is_aggregated(item_id)) %>% 
   accuracy(data = sales_aggr)
 ```
 
 ```{r message=TRUE, warning=TRUE}
-
-sales_aggr2 <- df2 %>%
-  aggregate_key((dept_id/item_id), sales = sum(sales))
-
-fit_aggr2 <- sales_aggr2 %>%
-  filter_index("2015-04-25"~"2015-05-23") %>% 
+#MODEL FITTING
+fit_aggr.fit <- sales_aggr %>%
+  filter_index("2016-03-26"~"2016-04-25") %>% 
   model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
 
-fc2 <- fit_aggr2 %>% forecast(h = 28)
 
-fc2 %>%
-  filter(!is_aggregated(dept_id)) %>%
+fc.fit <- fit_aggr.fit %>% forecast(h = 28)
+
+fc.fit %>%
+  filter(is_aggregated(item_id)) %>%
   autoplot(
-    sales_aggr2
-  )
+    sales_aggr %>% filter_index("2015-04"~"2015-07")
+  ) 
 
-
-fc2 %>%
-  filter(is_aggregated(item_id), is_aggregated(dept_id)) %>%
-  accuracy(data = sales_aggr2)
-
+#not the best/ more efficient model, but it works fine
+#why not using GG cloud for more computational power?
 ```
+
+```{r message=TRUE, warning=TRUE}
+# what we've tried:
+
+#bottom-up item_id -> dept_id
+#bottom-up item_id -> store_id
+#poor prediction
+
+#implementing dummys in our top-down
+#didnt find a way
+
+#the model that we're presenting is the best model that we've find while taking into account our computational capacity
+```
+
 
