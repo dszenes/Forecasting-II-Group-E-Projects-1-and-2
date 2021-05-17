@@ -295,7 +295,7 @@ sales_fit <- total_ts_sales %>%
   )
 
 sales_fit %>%
-  forecast(h = 28) %>%
+  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
@@ -321,14 +321,14 @@ dummy_snap = ifelse(
 
 ```{r}
 # LINEAR REGRESSION WITH: snap dummy
-fit_lm <- df %>% 
+fit_lm <- df %>% filter_index(.~"2015-04-25") %>% 
           model(TSLM(tot_sales ~ trend() + season() + snap))
 
-newdata_TLSM_snap <- new_data(total_ts_sales, n = 28) %>%
+newdata_TLSM_snap <- new_data(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28) %>%
   mutate(snap = dummy_snap)
 fit_lm %>%
   forecast(new_data = newdata_TLSM_snap) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
@@ -631,6 +631,57 @@ fc %>%
   filter(is_aggregated(item_id)) %>% 
   accuracy(data = sales_aggr)
 ```
+
+```{r message=TRUE, warning=TRUE}
+#other model try
+#naive
+fit_aggr_naive <- sales_aggr %>%
+  filter_index("2015-03-26"~"2015-04-25") %>% 
+  model(base = SNAIVE(sales)) %>% reconcile(td = top_down(base))
+fc_naive <- fit_aggr_naive %>% forecast(h = 28)
+fc_naive %>%
+  filter(is_aggregated(item_id)) %>%
+  autoplot(
+    sales_aggr %>% filter_index("2015-04"~"2015-07")
+  )
+fc_naive %>%
+  filter(is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(MASE)
+b <- fc_naive %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(b[5:9], median)
+#$RMSE [1] 1.336306
+#$MAE[1] 0.9285714
+#$MASE[1] 1.031888
+#$RMSSE[1] 0.9169868
+
+
+
+#ets
+fit_aggr_ets <- sales_aggr %>%
+  filter_index("2015-03-26"~"2015-04-25") %>% 
+  model(base = ETS(sales)) %>% reconcile(td = top_down(base))
+fc_ets <- fit_aggr_ets %>% forecast(h = 28)
+fc_ets %>%
+  filter(is_aggregated(item_id)) %>%
+  autoplot(
+    sales_aggr %>% filter_index("2015-04"~"2015-07")
+  )
+fc_ets %>%
+  filter(is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(MASE) #MASE=1.04
+c <- fc_ets %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(c[5:9], median)
+#$RMSE [1] 1.011418
+#$MAE[1] 0.7881585
+#$MASE[1] 0.9013102
+#$RMSSE[1] 0.70817
+
+```
+
 
 ```{r message=TRUE, warning=TRUE}
 #MODEL FITTING
