@@ -329,7 +329,7 @@ fit_lm %>%
 
 ```{r}
 # LINEAR REGRESSION WITH: event dummy that occurs during h=28  + snap
-fit_all_lm <- df %>%
+fit_all_lm <- df %>% filter_index(.~"2015-04-25") %>% 
   model(TSLM(
       tot_sales ~ trend() +
         season() + snap +
@@ -339,7 +339,7 @@ fit_all_lm <- df %>%
   ))
 
 newdata_TLSM_snap_h28event <-
-  new_data(total_ts_sales, n = 28) %>%
+  new_data(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28) %>%
   mutate(
     `name_1_Cinco De Mayo` = df[847:874,]$`name_1_Cinco De Mayo`,
     `name_1_Mother's day` =
@@ -353,7 +353,7 @@ newdata_TLSM_snap_h28event <-
 
 fit_all_lm %>%
   forecast(new_data = newdata_TLSM_snap_h28event) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
@@ -366,7 +366,7 @@ mod <- paste("tot_sales ~ ", paste(paste_col, collapse = " + "))
 
 ```{r}
 #LINEAR REGRESSION take into account all the event
-fit_generalized <- df %>%
+fit_generalized <- df %>% filter_index(.~"2015-04-25") %>%
   model(
     TSLM(
       tot_sales ~ trend() +
@@ -409,17 +409,17 @@ fit_generalized <- df %>%
 report(fit_generalized)
 
 fit_generalized_newdata <-
-  cbind(new_data(total_ts_sales, n = 28), df[847:874, 5:36]) %>% mutate(
+  cbind(new_data(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28), df[847:874, 5:36]) %>% mutate(
     snap = dummy_snap) %>% as_tsibble()
 
 fit_generalized %>%
   forecast(new_data = fit_generalized_newdata) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
 #LINEAR REGRESSION but removing all non-significant variable
-fit_generalized_backward <- df %>%
+fit_generalized_backward <- df %>% filter_index(.~"2015-04-25") %>%
   model(
     TSLM(
       tot_sales ~ trend() +
@@ -442,27 +442,27 @@ fit_generalized_backward <- df %>%
 report(fit_generalized_backward)
 
 fit_generalized_backward_newdata <-
-  cbind(new_data(total_ts_sales, n = 28), df[847:874, 5:36]) %>% mutate(
+  cbind(new_data(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28), df[847:874, 5:36]) %>% mutate(
     snap = dummy_snap) %>% as_tsibble()
 
 fit_generalized_backward %>%
   forecast(new_data = fit_generalized_backward_newdata) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
 #ARIMA model -> just with snap dummy
-fit_ARIMA1 <- df %>% 
+fit_ARIMA1 <- df %>% filter_index(.~"2015-04-25") %>% 
           model(ARIMA(tot_sales ~ trend() + season() + snap))
 
 fit_ARIMA1 %>%
-  forecast(new_data = future_souvenirs) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  forecast(new_data = fit_generalized_backward_newdata) %>%
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
 #ARIMA model with all event in order to generalize
-fit_ARIMA1_1 <- df %>% 
+fit_ARIMA1_1 <- df %>% filter_index(.~"2015-04-25") %>% 
           model(ARIMA(tot_sales ~ trend() + season() + snap +
         `name_1_Chanukah End` +
         name_1_Christmas +
@@ -502,11 +502,11 @@ fit_ARIMA1_1 <- df %>%
 
 fit_ARIMA1_1 %>%
   forecast(new_data = fit_generalized_newdata) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
-backward_arima <- df %>%
+backward_arima <- df %>% filter_index(.~"2015-04-25") %>%
   model(
     ARIMA(
       tot_sales ~ trend() +
@@ -528,7 +528,7 @@ backward_arima <- df %>%
 
 backward_arima %>%
   forecast(new_data = fit_generalized_newdata) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 
 ```
 
@@ -551,8 +551,7 @@ accuracy(fit_generalized),
 accuracy(fit_generalized_backward),
 accuracy(fit_ARIMA1),
 accuracy(fit_ARIMA1_1),
-accuracy(backward_arima),
-accuracy(tr))
+accuracy(backward_arima)) %>% arrange(MASE)
 ```
 
 ```{r}
@@ -580,7 +579,6 @@ sales_aggr %>%
   theme(legend.position = "none")
 ```
 
-
 ```{r message=TRUE, warning=TRUE}
 #Top down reconciliation requires strictly hierarchical structures
 #we can't add dummys if we've to forecast individual items
@@ -590,7 +588,7 @@ sales_aggr %>%
 
 #WARNING : sooooo much timeeee but it works ;) (15-20 min)
 fit_aggr <- sales_aggr %>%
-  filter_index("2016-02-01"~"2016-03-01") %>% 
+  filter_index("2015-04-25"~"2015-05-23") %>% 
   model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
 
 fc <- fit_aggr %>% forecast(h = 28)
@@ -598,10 +596,42 @@ fc <- fit_aggr %>% forecast(h = 28)
 fc %>%
   filter(is_aggregated(item_id)) %>%
   autoplot(
-    sales_aggr
+    sales_aggr %>% filter_index("2015-04"~"2015-07")
+  )
+
+fc %>%
+  filter(!is_aggregated(item_id)) %>%
+  filter(item_id == "FOODS_1_001") %>% 
+  autoplot(
+    sales_aggr %>% filter_index("2016"~.)
   )
 
 fc %>%
   filter(is_aggregated(item_id), is_aggregated(store_id)) %>%
   accuracy(data = sales_aggr)
 ```
+
+```{r message=TRUE, warning=TRUE}
+
+sales_aggr2 <- df2 %>%
+  aggregate_key((dept_id/item_id), sales = sum(sales))
+
+fit_aggr2 <- sales_aggr2 %>%
+  filter_index("2015-04-25"~"2015-05-23") %>% 
+  model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
+
+fc2 <- fit_aggr2 %>% forecast(h = 28)
+
+fc2 %>%
+  filter(!is_aggregated(dept_id)) %>%
+  autoplot(
+    sales_aggr2
+  )
+
+
+fc2 %>%
+  filter(is_aggregated(item_id), is_aggregated(dept_id)) %>%
+  accuracy(data = sales_aggr2)
+
+```
+
