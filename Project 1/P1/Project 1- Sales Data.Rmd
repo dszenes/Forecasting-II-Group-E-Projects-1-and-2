@@ -295,7 +295,7 @@ sales_fit <- total_ts_sales %>%
   )
 
 sales_fit %>%
-  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28) %>%
+  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), h = 28) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
