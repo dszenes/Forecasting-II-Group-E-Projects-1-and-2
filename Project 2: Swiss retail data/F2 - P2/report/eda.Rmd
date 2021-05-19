@@ -671,3 +671,4 @@ l<- ts_af %>% forecast(h=24) %>% autoplot(ts)
 (a/b/c/d)
 (e/f/g/h)
 (i/j/k/l)
+```
