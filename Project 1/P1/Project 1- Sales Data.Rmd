@@ -295,7 +295,7 @@ sales_fit <- total_ts_sales %>%
   )
 
 sales_fit %>%
-  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28) %>%
+  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), h = 28) %>%
   autoplot(total_ts_sales %>% filter_index("2016"~.))
 ```
 
@@ -617,7 +617,7 @@ fc %>%
   filter(!is_aggregated(item_id)) %>%
   filter(item_id == "FOODS_1_001") %>% 
   autoplot(
-    sales_aggr %>% filter_index("2015-04"~"2015-07") #"2016"~. previously but I feel like we couldn't see much
+    sales_aggr %>% filter_index("2016"~.) 
   ) # visual check of our prediction on some individual items
 
 a <- fc %>%
