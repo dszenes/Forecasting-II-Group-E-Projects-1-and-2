@@ -574,3 +574,100 @@ report(fit_reg2)
 accuracy(fit_reg2)
 accuracy(fit_reg)
 ```
+
+
+```{r, fig.align='center'}
+# We want to answer the following research question: which is the subseries that has benefit more from covid and the one that did worse during covid period.
+
+
+# Start giving an overlook to the subseries and how they behaved in the first months of 2020
+# Forecasts for sub series sectors:
+
+# the problem with these predictions is that in the next few months ( march, april..) the covid situation had became worse. So the ETS model is not fully reliable, we have to include into the forecast the information about covid.
+
+# tot_without_service_station
+
+ts_twss <- ts %>%
+  model(ETS(totwithout_service_stations))  
+report(ts_twss)
+a<- ts_twss %>% forecast(h=24) %>% autoplot(ts)
+
+# food_bev_tobacco
+
+ts_fbt <- ts %>%
+  model(ETS(food_bev_tobacco_retail))  
+report(ts_fbt)
+b <-ts_fbt %>% forecast(h=24) %>% autoplot(ts)
+
+# Non-food_without_service_station
+
+ts_nfwss<- ts %>%
+  model(ETS(`non-food_without_service_stations`))  
+report(ts_nfwss)
+
+c <-ts_nfwss %>% forecast(h=24) %>% autoplot(ts)
+
+# information_communication_equipment
+
+ts_ice <- ts %>%
+  model(ETS(cultural_recreation))
+
+d <- ts_ice %>% forecast(h=24) %>% autoplot(ts)
+# other_household_equipment
+
+ts_ohe <- ts %>%
+  model(ETS(other_household_equipment))
+
+e <-ts_ohe %>% forecast(h=24) %>% autoplot(ts)
+
+# cultural recreation
+ts_cr <- ts %>%
+  model(ETS(cultural_recreation))
+
+report(ts_cr)
+f <-ts_cr %>% forecast(h= 24) %>% autoplot(ts)
+
+#other goods
+
+ts_og <- ts %>%
+  model(ETS(other_goods))
+
+g <-ts_og %>% forecast(h= 24) %>% autoplot(ts)
+
+# 478:479 (?)
+
+ts_478_479 <- ts %>%
+  model(ETS(`478:479`))
+
+h <-ts_478_479 %>% forecast(h= 24) %>% autoplot(ts)
+
+# service station
+ts_ss <- ts %>%
+  model(ETS(service_stations))
+
+i <-ts_ss %>% forecast(h= 24) %>% autoplot(ts)
+
+
+# tot_without fuel
+ts_twf <- ts %>%
+  model(ETS(tot_without_fuel))
+
+j <-ts_twf %>% forecast(h= 24) %>% autoplot(ts)
+
+# clothing_footwear
+
+ts_cf <- ts %>%
+  model(ETS(clothing_footwear))
+
+k <- ts_cf %>% forecast(h= 24) %>% autoplot(ts)
+
+# autofuel
+ts_af <- ts %>%
+  model(ETS(auto_fuel))  
+report(ts_af)
+l<- ts_af %>% forecast(h=24) %>% autoplot(ts)
+
+# not really fancy to see
+(a/b/c/d)
+(e/f/g/h)
+(i/j/k/l)
