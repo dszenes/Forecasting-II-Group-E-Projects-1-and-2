@@ -617,7 +617,7 @@ fc %>%
   filter(!is_aggregated(item_id)) %>%
   filter(item_id == "FOODS_1_001") %>% 
   autoplot(
-    sales_aggr %>% filter_index("2016"~.)
+    sales_aggr %>% filter_index("2015-04"~"2015-07") #"2016"~. previously but I feel like we couldn't see much
   ) # visual check of our prediction on some individual items
 
 a <- fc %>%
