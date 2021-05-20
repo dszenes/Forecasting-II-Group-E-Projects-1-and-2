@@ -33,6 +33,99 @@ ts %>% features(tot, feat_acf)
 ts %>% gg_lag(tot, geom = "point")
 ```
 
+
+
+```{r, fig.align='center'}
+# Create dataset with important sub series:
+
+ts_new <- ts %>%
+  select(year_month,food_bev_tobacco_retail,information_communication_equipment,other_household_equipment,
+         cultural_recreation)
+
+# we want to cut the sub series from march 2020 onwards
+ts_cut <- ts_new %>% head(242)
+
+# FOOD_BEV_TOBACCO_RETAIL
+
+ts_cut_1 <- ts_cut %>%
+  model(ARIMA(food_bev_tobacco_retail))
+
+# forecast from march to february 2021.
+for_nocov<-ts_cut_1 %>% forecast(h=12) %>% autoplot(ts_cut)
+accuracy(ts_cut_1)
+
+for_cov<- ts %>% autoplot(food_bev_tobacco_retail)
+
+# comparison
+
+for_nocov/for_cov
+
+# INFORMATION COMMUNICATION EQUIPMENT
+
+ts_cut_2 <- ts_cut %>%
+  model(ARIMA(information_communication_equipment))
+accuracy(ts_cut_2)
+# forecast from march to february 2021
+for_nocov2<-ts_cut_2 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov2 <- ts %>% autoplot(information_communication_equipment)
+
+#comparison
+for_nocov2/ for_cov2
+
+# OTHER HOUSEHOLD
+ts_cut_3 <- ts_cut %>%
+  model(ARIMA(other_household_equipment))
+accuracy(ts_cut_3)
+
+# forecast from march to february 2021
+for_nocov3<-ts_cut_3 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov3 <- ts %>% autoplot(other_household_equipment)
+
+for_nocov3/ for_cov3
+
+
+# CULTURAL RECREATION
+ts_cut_4 <- ts_cut %>%
+  model(ARIMA(cultural_recreation))
+  
+# forecast from march to february 2021
+for_nocov4<-ts_cut_4 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov4 <- ts %>% autoplot(cultural_recreation)
+
+for_nocov4/ for_cov4
+
+
+# Let's see if with covid data improve the results:
+
+s<- merge(covid_monthly,ts_new,by="year_month")
+#DOES NOT WORK
+# create 
+
+ts_new_cov <- ts_new %>%
+  mutate(Hospital_Cases = 0) 
+
+ts_new_cov[c(242,243,244,245,246,247,248,249,250,251,252,253,254),6] <- c(42,2763,1108,111,59,222,219,454,3552,5947,5035,3004,1279) 
+
+
+# Forecasting With arima taking into account Hospital_cases to see whether the accuracy increase
+
+# data splitting
+
+training <- subset(ts_new_cov[1:242,])
+test <- subset(ts_new_cov[243:254,])
+
+model_fit <- training %>%
+  model(ARIMA(food_bev_tobacco_retail~ Hospital_Cases))
+
+
+
+
+
+
+```
 ```{r, fig.align='center'}
 # Classical decomposition
 # Classical decomposition additive
