@@ -530,6 +530,7 @@ accuracy(fit_arima)
 forecast(fit_arima, h = 48) %>% autoplot(ts)
 ```
 
+```{r, fig.align='center'}
 # Comparison between different models:
 
 fit_multi_models <- ts %>% 
@@ -610,7 +611,9 @@ c <-ts_nfwss %>% forecast(h=24) %>% autoplot(ts)
 # information_communication_equipment
 
 ts_ice <- ts %>%
-  model(ETS(cultural_recreation))
+  model(ETS(information_communication_equipment))
+
+forecast_ice <- ts_ice %>% forecast(h=24)
 
 d <- ts_ice %>% forecast(h=24) %>% autoplot(ts)
 # other_household_equipment
@@ -671,4 +674,10 @@ l<- ts_af %>% forecast(h=24) %>% autoplot(ts)
 (a/b/c/d)
 (e/f/g/h)
 (i/j/k/l)
+```
+
+```{r, fig.align='center'}
+
+
+
 ```
