@@ -584,8 +584,8 @@ sales_aggr %>%
   theme(legend.position = "none")
 ```
 
+
 ```{r message=TRUE, warning=TRUE}
-#MODEL TRAINING
 
 #Top down reconciliation requires strictly hierarchical structures
 #we can't add dummys if we've to forecast individual items
@@ -593,7 +593,6 @@ sales_aggr %>%
 #but i dont think so
 #-> in order to forecast ind. product : ARIMA with top-down approach
 
-#WARNING : sooooo much timeeee but it works ;) (15-20 min)
 fit_aggr <- sales_aggr %>%
   filter_index(.~"2015-04-25") %>% 
   model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
