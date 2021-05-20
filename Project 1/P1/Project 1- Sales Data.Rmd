@@ -6,6 +6,8 @@ library(data.table)
 library(stringr)
 ```
 
+
+#EDA + DATA WRANGLING
 ```{r}
 ## Sales data
 product_list <- unique(sales$item_id) 
@@ -32,19 +34,9 @@ total_sales %>% autoplot()
 #there are outliers in the data (26/12)
 ```
 
-```{r}
-#AFC plot: not white noise here, coeff are pretty high/significant, way above confidence interval most of the time: seems to have a strong pattern/seasonality
-
-#total_sales %>% ACF(tot_sales) %>% autoplot()
-#seasonal subseries plot: chart by month to see evolution of time series during the years for a particular month
-#total_sales %>%
-#  mutate(Month = yearmonth(day)) %>%
-# filter(Month > yearmonth("2011 Jan") & Month < yearmonth("2016 Apr") ) %>%
-#  as_tibble()
-```
 
 ```{r}
-#sales data: from daily to monthly
+#sales data: from daily to monthly -> vizualization process
 data_new2 <- as.data.frame(sales)
 data_new2$year_month <- floor_date(data_new2$day,"month")
 
@@ -102,9 +94,6 @@ total_sales %>% filter(tot_sales > 5000) #outliers because of NBAFinalsEnd (row 
 ```{r}
 sales_ts <- sales %>% as_tsibble(index = day, key = c(store_id, dept_id, item_id)) %>% filter_index("2014-01-01"~.)
 #without product in the hierarchical
-
-##hierarchical structure : hierarchy : store -> items
-# there are 1437 products. I propose to disregard the lowest hierarchy (the products) because too much products ? Maybe concentrate ourselves on the top 5 selling products?
 ```
 
 ```{r}
@@ -152,9 +141,7 @@ dep3tot_sales <- total_dep_sales %>%
 dep1tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
 dep2tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
 dep3tot_sales %>% filter_index("2014-01-01"~.) %>% autoplot(sales)
-```
 
-```{r}
 dep1tot_sales %>%
   filter_index("2014-01-01"~.) %>%
   filter(sales < 100)
@@ -224,16 +211,16 @@ cal2014 <- cal %>%
 ```{r}
 prices <- prices %>%
   filter_all(any_vars(str_detect(., pattern = "FOOD")))
-
-prices %>%
+prices  %>%
   ggplot(aes(wm_yr_wk, sell_price)) +
   geom_point()
 
-#we can see the evolution of the price of any product, we  need to transform the wm_yr_wk variable to get a continuous time variable
-```
+#we choose not to use this data set (price information)
 
-```{r}
-cal_price <- full_join(as_tibble(cal), as_tibble(prices), by = "wm_yr_wk") %>% select(-wm_yr_wk)
+cal_price <- full_join(as_tibble(cal),
+                       as_tibble(prices),
+                       by = "wm_yr_wk") %>%
+  select(-wm_yr_wk) #merge covariates dataset
 ```
 
 ```{r}
@@ -284,9 +271,13 @@ df <-
 df <- df %>% as_tsibble()
 ```
 
+
+#MODEL TRAINING
+## TOP-DOWN APPROACH
+
 ```{r}
 #MEAN + NAIVE + SNAIVE + ETS
-sales_fit <- total_ts_sales %>%
+sales_fit <- total_ts_sales %>% filter_index( "2014" ~"2015-04-25") %>%
   model(
     Mean = MEAN(tot_sales),
     `Naïve` = NAIVE(tot_sales),
@@ -295,8 +286,8 @@ sales_fit <- total_ts_sales %>%
   )
 
 sales_fit %>%
-  forecast(total_ts_sales %>% filter_index(.~"2015-04-25"), h = 28) %>%
-  autoplot(total_ts_sales %>% filter_index("2016"~.))
+  forecast(new_data(total_ts_sales %>% filter_index(.~"2015-04-25"), n = 28)) %>%
+  autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
 ```{r}
@@ -509,6 +500,7 @@ fit_ARIMA1_1 %>%
   autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
 ```
 
+
 ```{r}
 backward_arima <- df %>% filter_index(.~"2015-04-25") %>%
   model(
@@ -533,7 +525,6 @@ backward_arima <- df %>% filter_index(.~"2015-04-25") %>%
 backward_arima %>%
   forecast(new_data = fit_generalized_newdata) %>%
   autoplot(total_ts_sales %>% filter_index("2015-04"~"2015-07"))
-
 ```
 
 ```{r}
@@ -556,8 +547,11 @@ accuracy(fit_generalized_backward),
 accuracy(fit_ARIMA1),
 accuracy(fit_ARIMA1_1),
 accuracy(backward_arima)) %>% arrange(MASE)
+
+#which model is the best?
 ```
 
+### AGGREGATE KEY
 ```{r}
 #As we have struggled to forecast with bottom-up (low computational power of laptop)
 #Change the hierarchical way of thinking:
@@ -601,7 +595,7 @@ sales_aggr %>%
 
 #WARNING : sooooo much timeeee but it works ;) (15-20 min)
 fit_aggr <- sales_aggr %>%
-  filter_index("2015-03-26"~"2015-04-25") %>% 
+  filter_index(.~"2015-04-25") %>% 
   model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
 
 
@@ -610,55 +604,33 @@ fc <- fit_aggr %>% forecast(h = 28)
 fc %>%
   filter(is_aggregated(item_id)) %>%
   autoplot(
-    sales_aggr %>% filter_index("2015-04"~"2015-07")
+    sales_aggr %>% filter_index("2015-04-15"~"2015-05")
   ) #visual check of our prediction on total sales
 
 fc %>%
   filter(!is_aggregated(item_id)) %>%
   filter(item_id == "FOODS_1_001") %>% 
   autoplot(
-    sales_aggr %>% filter_index("2015-04"~"2015-07") 
+    sales_aggr %>% filter_index("2015-04"~"2015-07")
   ) # visual check of our prediction on some individual items
 
 a <- fc %>%
   filter(!is_aggregated(item_id)) %>% 
   accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
 lapply(a[5:9], median) #median of forecasting score for individual item
-#0.889239 MASE for individual prediction -> not bad
-#RMSSE  = 0.7113033 -> quite good!
+lapply(a[5:9], mean)
+#0.8698815 MASE for individual prediction -> not bad
+#RMSSE  = 0.8698815 -> quite good!
 
 fc %>%
   filter(is_aggregated(item_id)) %>% 
   accuracy(data = sales_aggr)
+#MASE = 0.537563
+#RMSSE = 0.5583377
 ```
 
 ```{r message=TRUE, warning=TRUE}
-#other model try
-#naive
-fit_aggr_naive <- sales_aggr %>%
-  filter_index("2015-03-26"~"2015-04-25") %>% 
-  model(base = SNAIVE(sales)) %>% reconcile(td = top_down(base))
-fc_naive <- fit_aggr_naive %>% forecast(h = 28)
-fc_naive %>%
-  filter(is_aggregated(item_id)) %>%
-  autoplot(
-    sales_aggr %>% filter_index("2015-04"~"2015-07")
-  )
-fc_naive %>%
-  filter(is_aggregated(item_id)) %>% 
-  accuracy(data = sales_aggr) %>% select(MASE)
-b <- fc_naive %>%
-  filter(!is_aggregated(item_id)) %>% 
-  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
-lapply(b[5:9], median)
-#$RMSE [1] 1.336306
-#$MAE[1] 0.9285714
-#$MASE[1] 1.031888
-#$RMSSE[1] 0.9169868
-
-
-
-#ets
+# TOP DOWN ETS
 fit_aggr_ets <- sales_aggr %>%
   filter_index("2015-03-26"~"2015-04-25") %>% 
   model(base = ETS(sales)) %>% reconcile(td = top_down(base))
@@ -679,15 +651,145 @@ lapply(c[5:9], median)
 #$MAE[1] 0.7881585
 #$MASE[1] 0.9013102
 #$RMSSE[1] 0.70817
+```
 
+
+## BOTTOM-UP APPROACH
+
+```{r message=TRUE, warning=TRUE}
+#ARIMA BOTTOM UP
+fit_aggr_bu <- sales_aggr %>%
+  filter_index(.~"2015-04-25") %>% 
+  model(base = ARIMA(sales)) %>% reconcile(bu = bottom_up(base))
+
+
+fc.fit_bu<- fit_aggr_bu %>% forecast(h = 28)
+
+fc.fit_bu %>%
+  filter(is_aggregated(item_id)) %>%
+  autoplot(
+    sales_aggr %>% filter_index("2015-04"~"2015-07")  )
+
+d <- fc.fit_bu %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(d[5:9], median)
+lapply(d[5:9], mean)
+
+#$ME
+#[1] -0.008927619
+#$RMSE
+#[1] 1.009642
+#$MAE
+#[1] 0.7803395
+#$MASE
+#[1] 0.8669053
+#$RMSSE
+#[1] 0.6839932
+
+
+fc.fit_bu %>%
+  filter(is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr)
 ```
 
 
 ```{r message=TRUE, warning=TRUE}
+#ETS BOTTOM UP
+
+fit_aggr_etssss <- sales_aggr %>%
+  filter_index(.~"2016-04-25") %>% 
+  model(base = ETS(sales)) %>% reconcile(bu = bottom_up(base))
+
+
+fc.fit_etssss <- fit_aggr_etssss %>% forecast(h = 28)
+
+fc.fit_etssss %>%
+  filter(is_aggregated(item_id)) %>%
+  autoplot(
+    sales_aggr %>% filter_index("2015-04-20"~"2015-05"))
+
+fc.fit_etssss %>% filter(item_id == "FOODS_3_090") %>% 
+  autoplot(
+    sales_aggr %>% filter_index("2015-04-20"~"2015-05"))
+
+e <- fc.fit_etssss %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(e[5:9], median)
+#$ME
+#[1] -0.02123114
+#$RMSE
+#[1] 1.005747
+#$MAE
+#[1] 0.7765995
+#$MASE
+#[1] 0.8779665
+#$RMSSE
+#[1] 0.6823374
+
+
+fc.fit_etssss %>%
+  filter(is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr)
+# A tibble: 4 x 12
+#.model store_id     item_id      .type    ME  RMSE   MAE    MPE  MAPE  MASE RMSSE  ACF1
+#<chr>  <chr*>       <chr*>       <chr> <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl>
+#  1 base   TX_2         <aggregated> Test   8.72  208.  167. -0.165  7.11 0.536 0.523 0.145
+#2 base   <aggregated> <aggregated> Test   8.72  208.  167. -0.165  7.11 0.536 0.523 0.145
+#3 td     TX_2         <aggregated> Test  -7.78  201.  163. -1.25   7.08 0.522 0.504 0.206
+#4 td     <aggregated> <aggregated> Test  -7.78  201.  163. -1.25   7.08 0.522 0.504 0.206
+```
+
+```{r message=TRUE, warning=TRUE}
+fit_aggr_tslm <- sales_aggr %>%
+  filter_index(.~"2015-04-25") %>% 
+  model(base = TSLM(sales ~ trend() + season())) %>% reconcile(bu = bottom_up(base))
+
+fc.fit_tslm  <- fit_aggr_tslm %>% forecast(h = 28)
+
+fc.fit_tslm %>%
+  filter(is_aggregated(item_id)) %>%
+  autoplot(
+    sales_aggr %>% filter_index("2015-04"~"2015-07")  )
+
+f <- fc.fit_tslm %>%
+  filter(!is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr) %>% select(-MPE, -MAPE, -ACF1 )
+lapply(f[5:9], median)
+#$ME
+#[1] 0.00751179
+#$RMSE
+#[1] 1.064207
+#$MAE
+#[1] 0.831586
+#$MASE
+#[1] 0.9233164
+#$RMSSE
+#[1] 0.7094417
+
+
+
+
+fc.fit_tslm %>%
+  filter(is_aggregated(item_id)) %>% 
+  accuracy(data = sales_aggr)
+# A tibble: 4 x 12
+#.model store_id     item_id      .type    ME  RMSE   MAE    MPE  MAPE  MASE RMSSE  ACF1
+#<chr>  <chr*>       <chr*>       <chr> <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl>
+#  1 base   TX_2         <aggregated> Test  -8.33  204.  165. -0.909  7.08 0.529 0.512 0.157
+#2 base   <aggregated> <aggregated> Test  -8.33  204.  165. -0.909  7.08 0.529 0.512 0.157
+#3 td     TX_2         <aggregated> Test  -8.33  204.  165. -0.909  7.08 0.529 0.512 0.157
+#4 td     <aggregated> <aggregated> Test  -8.33  204.  165. -0.909  7.08 0.529 0.512 0.157
+```
+
 #MODEL FITTING
+
+```{r message=TRUE, warning=TRUE}
+#MODEL FITTING for item
 fit_aggr.fit <- sales_aggr %>%
-  filter_index("2016-03-26"~"2016-04-25") %>% 
-  model(base = ARIMA(sales)) %>% reconcile(td = top_down(base))
+  filter_index(.~"2016-04-25") %>% 
+  model(base = ETS(sales)) %>% reconcile(bu = bottom_up(base))
 
 
 fc.fit <- fit_aggr.fit %>% forecast(h = 28)
@@ -695,24 +797,8 @@ fc.fit <- fit_aggr.fit %>% forecast(h = 28)
 fc.fit %>%
   filter(is_aggregated(item_id)) %>%
   autoplot(
-    sales_aggr %>% filter_index("2015-04"~"2015-07")
-  ) 
-
+    sales_aggr %>%
+  filter_index("2016-04"~.)
+  )
 #not the best/ more efficient model, but it works fine
-#why not using GG cloud for more computational power?
 ```
-
-```{r message=TRUE, warning=TRUE}
-# what we've tried:
-
-#bottom-up item_id -> dept_id
-#bottom-up item_id -> store_id
-#poor prediction
-
-#implementing dummys in our top-down
-#didnt find a way
-
-#the model that we're presenting is the best model that we've find while taking into account our computational capacity
-```
-
-
