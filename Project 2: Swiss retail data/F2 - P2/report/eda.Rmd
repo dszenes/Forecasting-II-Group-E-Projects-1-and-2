@@ -33,6 +33,14 @@ ts %>% features(tot, feat_acf)
 ts %>% gg_lag(tot, geom = "point")
 ```
 
+
+
+
+
+
+
+
+
 ```{r, fig.align='center'}
 # Classical decomposition
 # Classical decomposition additive
@@ -530,6 +538,7 @@ accuracy(fit_arima)
 forecast(fit_arima, h = 48) %>% autoplot(ts)
 ```
 
+```{r, fig.align='center'}
 # Comparison between different models:
 
 fit_multi_models <- ts %>% 
@@ -573,4 +582,632 @@ report(fit_reg2)
 
 accuracy(fit_reg2)
 accuracy(fit_reg)
+```
+
+
+```{r, fig.align='center'}
+# We want to answer the following research question: which is the subseries that has benefit more from covid and the one that did worse during covid period.
+
+
+# Start giving an overlook to the subseries and how they behaved in the first months of 2020
+# Forecasts for sub series sectors:
+
+# the problem with these predictions is that in the next few months ( march, april..) the covid situation had became worse. So the ETS model is not fully reliable, we have to include into the forecast the information about covid.
+
+# tot_without_service_station
+
+ts_twss <- ts %>%
+  model(ETS(totwithout_service_stations))  
+report(ts_twss)
+a<- ts_twss %>% forecast(h=24) %>% autoplot(ts)
+
+# food_bev_tobacco
+
+ts_fbt <- ts %>%
+  model(ETS(food_bev_tobacco_retail))  
+report(ts_fbt)
+b <-ts_fbt %>% forecast(h=24) %>% autoplot(ts)
+
+# Non-food_without_service_station
+
+ts_nfwss<- ts %>%
+  model(ETS(`non-food_without_service_stations`))  
+report(ts_nfwss)
+
+c <-ts_nfwss %>% forecast(h=24) %>% autoplot(ts)
+
+# information_communication_equipment
+
+ts_ice <- ts %>%
+  model(ETS(information_communication_equipment))
+
+forecast_ice <- ts_ice %>% forecast(h=24)
+
+d <- ts_ice %>% forecast(h=24) %>% autoplot(ts)
+# other_household_equipment
+
+ts_ohe <- ts %>%
+  model(ETS(other_household_equipment))
+
+e <-ts_ohe %>% forecast(h=24) %>% autoplot(ts)
+
+# cultural recreation
+ts_cr <- ts %>%
+  model(ETS(cultural_recreation))
+
+report(ts_cr)
+f <-ts_cr %>% forecast(h= 24) %>% autoplot(ts)
+
+#other goods
+
+ts_og <- ts %>%
+  model(ETS(other_goods))
+
+g <-ts_og %>% forecast(h= 24) %>% autoplot(ts)
+
+# 478:479 (?)
+
+ts_478_479 <- ts %>%
+  model(ETS(`478:479`))
+
+h <-ts_478_479 %>% forecast(h= 24) %>% autoplot(ts)
+
+# service station
+ts_ss <- ts %>%
+  model(ETS(service_stations))
+
+i <-ts_ss %>% forecast(h= 24) %>% autoplot(ts)
+
+
+# tot_without fuel
+ts_twf <- ts %>%
+  model(ETS(tot_without_fuel))
+
+j <-ts_twf %>% forecast(h= 24) %>% autoplot(ts)
+
+# clothing_footwear
+
+ts_cf <- ts %>%
+  model(ETS(clothing_footwear))
+
+k <- ts_cf %>% forecast(h= 24) %>% autoplot(ts)
+
+# autofuel
+ts_af <- ts %>%
+  model(ETS(auto_fuel))  
+report(ts_af)
+l<- ts_af %>% forecast(h=24) %>% autoplot(ts)
+
+# not really fancy to see
+(a/b/c/d)
+(e/f/g/h)
+(i/j/k/l)
+```
+```{r, fig.align='center'}
+# Create dataset with important sub series:
+
+ts_new <- ts %>%
+  select(year_month,food_bev_tobacco_retail,information_communication_equipment,other_household_equipment,
+         cultural_recreation)
+
+# we want to cut the sub series from march 2020 onwards
+ts_cut <- ts_new %>% head(242)
+
+# FOOD_BEV_TOBACCO_RETAIL
+
+ts_cut_1 <- ts_cut %>%
+  model(ARIMA(food_bev_tobacco_retail))
+
+# forecast from march to february 2021.
+for_nocov<-ts_cut_1 %>% forecast(h=12) %>% autoplot(ts_cut)
+accuracy(ts_cut_1)
+
+for_cov<- ts %>% autoplot(food_bev_tobacco_retail)
+
+# comparison
+
+for_nocov/for_cov
+
+# INFORMATION COMMUNICATION EQUIPMENT
+
+ts_cut_2 <- ts_cut %>%
+  model(ARIMA(information_communication_equipment))
+accuracy(ts_cut_2)
+# forecast from march to february 2021
+for_nocov2<-ts_cut_2 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov2 <- ts %>% autoplot(information_communication_equipment)
+
+#comparison
+for_nocov2/ for_cov2
+
+# OTHER HOUSEHOLD
+ts_cut_3 <- ts_cut %>%
+  model(ARIMA(other_household_equipment))
+accuracy(ts_cut_3)
+
+# forecast from march to february 2021
+for_nocov3<-ts_cut_3 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov3 <- ts %>% autoplot(other_household_equipment)
+
+for_nocov3/ for_cov3
+
+
+# CULTURAL RECREATION
+ts_cut_4 <- ts_cut %>%
+  model(ARIMA(cultural_recreation))
+  
+# forecast from march to february 2021
+for_nocov4<-ts_cut_4 %>% forecast(h=12) %>% autoplot(ts_cut)
+
+for_cov4 <- ts %>% autoplot(cultural_recreation)
+
+for_nocov4/ for_cov4
+
+
+# Let's see if with covid data improve the results:
+
+s<- merge(covid_monthly,ts_new,by="year_month")
+#DOES NOT WORK
+# create 
+
+ts_new_cov <- ts_new %>%
+  mutate(Hospital_Cases = 0) 
+
+ts_new_cov[c(242,243,244,245,246,247,248,249,250,251,252,253,254),6] <- c(42,2763,1108,111,59,222,219,454,3552,5947,5035,3004,1279) 
+
+
+# Forecasting With arima taking into account Hospital_cases to see whether the accuracy increase
+
+# data splitting
+
+training <- subset(ts_new_cov[1:242,])
+test <- subset(ts_new_cov[243:254,])
+
+model_fit <- training %>%
+  model(ARIMA(food_bev_tobacco_retail~ Hospital_Cases))
+
+```{r, fig.align='center'}
+# Create a dataset with informations about covid and the 8 sub-series that we have choosen:
+# food_bev_tobacco_retail,information_communication_equipment,other_household_equipment, 
+# cultural_recreation,service_stations,clothing_footwear,auto_fuel,`478:479`.
+
+
+ts_new <- ts %>%
+  select(year_month,food_bev_tobacco_retail,information_communication_equipment,other_household_equipment,
+         cultural_recreation,service_stations,clothing_footwear,auto_fuel,`478:479`) %>% 
+  rename(internet = `478:479`)
+
+# we want to cut the sub series from february 2020 onwards and rename the internet variable
+ts_cut <- ts_new %>% head(241) 
+# actually we do not need this cutted dataset here
+
+ts_new_cov <- ts_new %>%
+  mutate(Hospital_Cases = 0) 
+  
+# insert informations about covid cases
+ts_new_cov[c(242,243,244,245,246,247,248,249,250,251,252,253,254),10] <- c(42,2763,1108,111,59,222,219,454,3552,5947,5035,3004,1279) 
+# this is our final dataset.
+
+# FOOD BEVERAGES AND TOBACCO RETAIL
+
+# regression without covid information
+
+reg_Food <- ts_new_cov %>%
+  model(TSLM(food_bev_tobacco_retail ~ trend() + season()))
+
+# regression with covid data
+
+reg_Food_cov <- ts_new_cov %>%
+  model(TSLM(food_bev_tobacco_retail ~ Hospital_Cases + trend() + season()))
+
+# Let's see the fit
+
+# regression without covid info
+augment(reg_Food) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = food_bev_tobacco_retail, colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly food beverages and tobacco retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+augment(reg_Food_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = food_bev_tobacco_retail, colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly food beverages and tobacco retail sales",
+subtitle = "predicted with covid informations")
+
+# model quality
+
+accuracy(reg_Food)
+accuracy(reg_Food_cov)
+
+
+
+glance(reg_Food) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Food_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+
+# INFORMATION AND COMMUNICATION EQUIPMENT RETAIL
+
+# regression without covid information
+
+reg_Comm <- ts_new_cov %>%
+  model(TSLM(information_communication_equipment ~ trend() + season()))
+
+# regression with covid data
+
+reg_Comm_cov <- ts_new_cov %>%
+  model(TSLM(information_communication_equipment ~ Hospital_Cases + trend() + season()))
+
+
+# regression without covid info
+
+augment(reg_Comm) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =information_communication_equipment, colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly information and communication retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Comm_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = information_communication_equipment, colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly information and communication retail sales",
+subtitle = "predicted with covid informations")
+
+# model quality
+
+accuracy(reg_Comm)
+accuracy(reg_Comm_cov)
+
+
+
+glance(reg_Comm) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Comm_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+# HOUSEHOLD EQUIPMENT
+
+# regression without covid information
+
+reg_House <- ts_new_cov %>%
+  model(TSLM(other_household_equipment ~ trend() + season()))
+
+# regression with covid data
+
+reg_House_cov <- ts_new_cov %>%
+  model(TSLM(other_household_equipment ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_House) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =other_household_equipment , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly household equipment retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_House_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = other_household_equipment , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly household equipment retail sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_House)
+accuracy(reg_House_cov)
+
+
+
+glance(reg_House) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_House_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+
+# CULTURAL AND RECREATION GOODS
+
+
+
+# regression without covid information
+
+reg_Cult <- ts_new_cov %>%
+  model(TSLM(cultural_recreation ~ trend() + season()))
+
+# regression with covid data
+
+reg_Cult_cov <- ts_new_cov %>%
+  model(TSLM(cultural_recreation ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_Cult) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =cultural_recreation , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly cultural and recreation goods retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Cult_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = cultural_recreation , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly cultural and recreation goods retail sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_Cult)
+accuracy(reg_Cult_cov)
+
+
+
+glance(reg_Cult) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Cult_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+# SERVICE STATIONS
+
+
+# regression without covid information
+
+reg_Serv <- ts_new_cov %>%
+  model(TSLM(service_stations ~ trend() + season()))
+
+# regression with covid data
+
+reg_Serv_cov <- ts_new_cov %>%
+  model(TSLM(service_stations ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_Serv) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =service_stations , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly service stations retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Serv_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = service_stations , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly service stations retail sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_Serv)
+accuracy(reg_Serv_cov)
+
+
+glance(reg_Serv) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Serv_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+# CLOOTHING AND FOOTWEAR
+
+
+# regression without covid information
+
+reg_Cloth <- ts_new_cov %>%
+  model(TSLM(clothing_footwear ~ trend() + season()))
+
+# regression with covid data
+
+reg_Cloth_cov <- ts_new_cov %>%
+  model(TSLM(clothing_footwear ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_Cloth) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =clothing_footwear , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly clothing and footwear retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Cloth_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = clothing_footwear , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly clothing and footwear retail sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_Cloth)
+accuracy(reg_Cloth_cov)
+
+
+glance(reg_Cloth) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Cloth_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+
+# AUTOFUEL
+
+# regression without covid information
+
+reg_Autof <- ts_new_cov %>%
+  model(TSLM(auto_fuel ~ trend() + season()))
+
+# regression with covid data
+
+reg_Autof_cov <- ts_new_cov %>%
+  model(TSLM(auto_fuel ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_Autof) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =auto_fuel , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly autofuel retail sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Autof_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y = auto_fuel , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly autofuel retail sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_Autof)
+accuracy(reg_Autof_cov)
+
+
+glance(reg_Autof) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Autof_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
+# INTERNET
+
+
+# regression without covid information
+
+reg_Inter <- ts_new_cov %>%
+  model(TSLM(internet ~ trend() + season()))
+
+# regression with covid data
+
+reg_Inter_cov <- ts_new_cov %>%
+  model(TSLM(internet ~ Hospital_Cases + trend() + season()))
+
+# regression without covid info
+
+augment(reg_Inter) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =internet , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title =
+"Monthly internet orders sales",
+subtitle = "predicted without covid informations")
+
+# regression with covid info
+
+augment(reg_Inter_cov) %>% ggplot(aes(x = year_month)) +
+geom_line(aes(y =internet , colour =
+"Data")) +
+geom_line(aes(y = .fitted, colour =
+"Fitted")) +
+labs(x =
+"Year"
+, y =
+"Sales"
+, title = "Monthly internet orders sales",
+subtitle = "predicted with covid informations")
+
+
+# model quality
+
+accuracy(reg_Inter)
+accuracy(reg_Inter_cov)
+
+
+glance(reg_Inter) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+glance(reg_Inter_cov) %>% dplyr::select(adj_r_squared,CV,AIC,AICc,BIC)
+
 ```
